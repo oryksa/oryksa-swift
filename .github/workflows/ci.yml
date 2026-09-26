@@ -1,0 +1,13 @@
+name: CI
+on:
+  push:
+  pull_request:
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test (macOS)
+        run: swift test
+      - name: Build for iOS
+        run: xcodebuild -scheme Oryksa -destination 'generic/platform=iOS' build CODE_SIGNING_ALLOWED=NO | tail -20
