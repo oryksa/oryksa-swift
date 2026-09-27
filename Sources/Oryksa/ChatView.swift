@@ -1,6 +1,9 @@
 // The ORYKSA chat for SwiftUI: name and photo of the AI from ORYKSA, with voice on iOS. License: MIT.
 #if canImport(SwiftUI)
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 /// Colors of the chat. The defaults are the ORYKSA website chat colors.
 public struct OryksaChatTheme {
@@ -19,10 +22,10 @@ public struct OryksaChatTheme {
 }
 
 let oryksaTexts: [String: [String: String]] = [
-    "en": ["talk": "Talk to", "ph": "Type your question", "send": "Send", "err": "Sorry, something went wrong. Try again.", "voice": "Talk by voice"],
-    "pt": ["talk": "Falar com", "ph": "Escreve a tua pergunta", "send": "Enviar", "err": "Desculpa, algo correu mal. Tenta de novo.", "voice": "Falar por voz"],
-    "br": ["talk": "Falar com", "ph": "Digite sua pergunta", "send": "Enviar", "err": "Desculpe, algo deu errado. Tente de novo.", "voice": "Falar por voz"],
-    "es": ["talk": "Hablar con", "ph": "Escribe tu pregunta", "send": "Enviar", "err": "Lo siento, algo salió mal. Inténtalo de nuevo.", "voice": "Hablar por voz"],
+    "en": ["talk": "Talk to", "ph": "Type your question", "send": "Send", "err": "Sorry, something went wrong. Try again.", "voice": "Talk by voice", "copy": "Copy"],
+    "pt": ["talk": "Falar com", "ph": "Escreve a tua pergunta", "send": "Enviar", "err": "Desculpa, algo correu mal. Tenta de novo.", "voice": "Falar por voz", "copy": "Copiar"],
+    "br": ["talk": "Falar com", "ph": "Digite sua pergunta", "send": "Enviar", "err": "Desculpe, algo deu errado. Tente de novo.", "voice": "Falar por voz", "copy": "Copiar"],
+    "es": ["talk": "Hablar con", "ph": "Escribe tu pregunta", "send": "Enviar", "err": "Lo siento, algo salió mal. Inténtalo de nuevo.", "voice": "Hablar por voz", "copy": "Copiar"],
 ]
 
 func oryksaLang(_ l: String) -> String { oryksaTexts[l] != nil ? l : "en" }
@@ -145,6 +148,7 @@ public struct OryksaChatView: View {
                     LazyVStack(spacing: 10) {
                         ForEach(model.msgs) { m in
                             let mine = m.role == "user"
+                            VStack(alignment: .leading, spacing: 2) {
                             HStack {
                                 if mine { Spacer(minLength: 40) }
                                 oryksaBold(mine && model.profanityReady ? OryksaProfanity.mask(m.text, model.lang) : m.text)
@@ -156,6 +160,11 @@ public struct OryksaChatView: View {
                                     .opacity(m.role == "typing" ? 0.6 : 1)
                                     .textSelection(.enabled)
                                 if !mine { Spacer(minLength: 40) }
+                            }
+                            // Copy button under each reply of the AI (same as the ORYKSA apps and extension).
+                            if !mine && m.role != "typing" && !m.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                OryksaCopyButton(text: m.text.replacingOccurrences(of: "**", with: ""), label: tx["copy"] ?? "Copy", color: theme.muted)
+                            }
                             }
                             .id(m.id)
                         }
@@ -288,3 +297,32 @@ public final class OryksaChatViewController: UIHostingController<AnyView> {
 }
 #endif
 #endif
+
+/// Small copy button under a reply: copies the text and shows a check for a moment.
+struct OryksaCopyButton: View {
+    let text: String
+    let label: String
+    let color: Color
+    @State private var done = false
+
+    var body: some View {
+        Button {
+            #if os(iOS)
+            UIPasteboard.general.string = text
+            #elseif os(macOS)
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(text, forType: .string)
+            #endif
+            done = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { done = false }
+        } label: {
+            Image(systemName: done ? "checkmark" : "doc.on.doc")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(color)
+                .frame(width: 28, height: 26)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+}
