@@ -39,6 +39,7 @@ final class OryksaChatModel: ObservableObject {
     @Published fileprivate var msgs: [ChatMsg] = []
     @Published var suggestions: [String] = []
     @Published var busy = false
+    @Published var profanityReady = false
     let client: OryksaClient
     let lang: String
     let appContext: (() -> OryksaAppContext?)?
@@ -56,6 +57,8 @@ final class OryksaChatModel: ObservableObject {
     }
 
     func load() async {
+        // Swear words the customer types show as asterisks (one list for every ORYKSA chat).
+        Task { await OryksaProfanity.load(lang); profanityReady = true }
         guard agent == nil else { return }
         do {
             let a = try await client.agent()
@@ -144,7 +147,7 @@ public struct OryksaChatView: View {
                             let mine = m.role == "user"
                             HStack {
                                 if mine { Spacer(minLength: 40) }
-                                oryksaBold(m.text)
+                                oryksaBold(mine && model.profanityReady ? OryksaProfanity.mask(m.text, model.lang) : m.text)
                                     .font(.system(size: 14)).lineSpacing(3)
                                     .foregroundColor(mine ? .white : theme.ink)
                                     .padding(.horizontal, 14).padding(.vertical, 10)

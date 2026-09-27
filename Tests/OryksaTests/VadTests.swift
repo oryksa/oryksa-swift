@@ -235,3 +235,26 @@ final class VoiceApiTests: XCTestCase {
         XCTAssertTrue(OryksaAppContext().json.isEmpty)
     }
 }
+
+
+final class ProfanityTests: XCTestCase {
+    override func setUpWithError() throws {
+        let url = try XCTUnwrap(Bundle.module.url(forResource: "profanity_br", withExtension: "json", subdirectory: "voice"))
+        let obj = try XCTUnwrap(try JSONSerialization.jsonObject(with: Data(contentsOf: url)) as? [String: Any])
+        OryksaProfanity.use("br", pattern: obj["pattern"] as! String, flags: obj["flags"] as! String)
+    }
+
+    func testSwearWordsShowAsAsterisks() {
+        XCTAssertEqual(OryksaProfanity.mask("filha da puta", "br"), "filha da ****")
+        XCTAssertEqual(OryksaProfanity.mask("vai tomar no cu", "br"), "vai tomar ****") // the list masks the whole expression "no cu"
+        XCTAssertEqual(OryksaProfanity.mask("Que PORRA é essa?", "br"), "Que ***** é essa?")
+    }
+
+    func testNormalWordsStay() {
+        for t in ["Quero uma vela de lavanda.", "O curso de computador custa quanto?", "Cuidado com a entrega", "Olá, boa tarde!"] {
+            XCTAssertEqual(OryksaProfanity.mask(t, "br"), t)
+        }
+    }
+
+    func testWithoutTheListNothingChanges() { XCTAssertEqual(OryksaProfanity.mask("filha da puta", "es"), "filha da puta") }
+}
