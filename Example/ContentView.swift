@@ -27,7 +27,7 @@ struct ContentView: View {
                 Text("489.95")
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
-            OryksaChatButton(client: client, lang: "en",
+            OryksaChatButton(client: client, lang: UserDefaults.standard.string(forKey: "lang") ?? "en",
                              appContext: { OryksaAppContext(screen: "product", title: "\(product), 489.95", items: [product]) })
                 .padding()
         }

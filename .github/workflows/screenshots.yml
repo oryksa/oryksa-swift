@@ -27,7 +27,7 @@ jobs:
           xcrun simctl privacy "$UDID" grant microphone com.oryksa.example
           for s in product chat voice; do
             xcrun simctl launch --terminate-running-process "$UDID" com.oryksa.example -screen $s -lang pt
-            if [ $s = voice ]; then sleep 4; else sleep 15; fi
+            if [ $s = voice ]; then sleep 4; elif [ $s = chat ]; then sleep 30; else sleep 15; fi
             xcrun simctl io "$UDID" screenshot shots/ios_$s.png
           done
       - uses: actions/upload-artifact@v4
