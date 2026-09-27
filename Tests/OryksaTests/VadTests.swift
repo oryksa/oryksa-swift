@@ -205,3 +205,33 @@ final class VadTests: XCTestCase {
         XCTAssertFalse(alto.foiSussurro)
     }
 }
+
+final class VoiceApiTests: XCTestCase {
+    func testReplyReadsSpeechAndWhisper() throws {
+        let j = #"{"status":"replied","reply":"**Yes!** It costs 59.90. Anything else?","speech":"Yes! It costs 59.90.","whisper":true}"#
+        let r = try JSONDecoder().decode(OryksaReply.self, from: Data(j.utf8))
+        XCTAssertEqual(r.speech, "Yes! It costs 59.90.")
+        XCTAssertTrue(r.whisper)
+        let old = try JSONDecoder().decode(OryksaReply.self, from: Data(#"{"status":"replied","reply":"Hi"}"#.utf8))
+        XCTAssertNil(old.speech)
+        XCTAssertFalse(old.whisper)
+    }
+
+    func testAgentIdentityFromOryksa() throws {
+        let j = #"{"name":"Sofia","avatar":"https://x/ai.jpg","voice":"v123","language":"pt","voice_replies":true}"#
+        let a = try JSONDecoder().decode(OryksaAgent.self, from: Data(j.utf8))
+        XCTAssertEqual(a.name, "Sofia")
+        XCTAssertEqual(a.photo, "https://x/ai.jpg")
+        XCTAssertEqual(a.voice, "v123")
+        XCTAssertEqual(a.language, "pt")
+        XCTAssertTrue(a.voiceReplies)
+    }
+
+    func testAppContextJson() {
+        let c = OryksaAppContext(screen: "product", title: "Lavender candle", items: (0..<30).map { "item \($0)" })
+        XCTAssertEqual(c.json["screen"] as? String, "product")
+        XCTAssertEqual(c.json["title"] as? String, "Lavender candle")
+        XCTAssertEqual((c.json["items"] as? [String])?.count, 20)
+        XCTAssertTrue(OryksaAppContext().json.isEmpty)
+    }
+}

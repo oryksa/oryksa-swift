@@ -1,4 +1,4 @@
-// The ORYKSA chat for SwiftUI, with the look of the ORYKSA website chat. License: MIT.
+// The ORYKSA chat for SwiftUI: name and photo of the AI from ORYKSA, with voice on iOS. License: MIT.
 #if canImport(SwiftUI)
 import SwiftUI
 
@@ -19,10 +19,10 @@ public struct OryksaChatTheme {
 }
 
 let oryksaTexts: [String: [String: String]] = [
-    "en": ["talk": "Talk to", "ph": "Type your question", "send": "Send", "err": "Sorry, something went wrong. Try again."],
-    "pt": ["talk": "Falar com", "ph": "Escreve a tua pergunta", "send": "Enviar", "err": "Desculpa, algo correu mal. Tenta de novo."],
-    "br": ["talk": "Falar com", "ph": "Digite sua pergunta", "send": "Enviar", "err": "Desculpe, algo deu errado. Tente de novo."],
-    "es": ["talk": "Hablar con", "ph": "Escribe tu pregunta", "send": "Enviar", "err": "Lo siento, algo salió mal. Inténtalo de nuevo."],
+    "en": ["talk": "Talk to", "ph": "Type your question", "send": "Send", "err": "Sorry, something went wrong. Try again.", "voice": "Talk by voice"],
+    "pt": ["talk": "Falar com", "ph": "Escreve a tua pergunta", "send": "Enviar", "err": "Desculpa, algo correu mal. Tenta de novo.", "voice": "Falar por voz"],
+    "br": ["talk": "Falar com", "ph": "Digite sua pergunta", "send": "Enviar", "err": "Desculpe, algo deu errado. Tente de novo.", "voice": "Falar por voz"],
+    "es": ["talk": "Hablar con", "ph": "Escribe tu pregunta", "send": "Enviar", "err": "Lo siento, algo salió mal. Inténtalo de nuevo.", "voice": "Hablar por voz"],
 ]
 
 func oryksaLang(_ l: String) -> String { oryksaTexts[l] != nil ? l : "en" }
@@ -41,10 +41,18 @@ final class OryksaChatModel: ObservableObject {
     @Published var busy = false
     let client: OryksaClient
     let lang: String
+    let appContext: (() -> OryksaAppContext?)?
 
-    init(client: OryksaClient, lang: String) {
+    init(client: OryksaClient, lang: String, appContext: (() -> OryksaAppContext?)? = nil) {
         self.client = client
         self.lang = oryksaLang(lang)
+        self.appContext = appContext
+    }
+
+    /// A line said or heard in the voice screen goes to the chat too.
+    func add(_ role: String, _ text: String) {
+        suggestions = []
+        msgs.append(ChatMsg(role: role, text: text))
     }
 
     func load() async {
@@ -71,24 +79,42 @@ final class OryksaChatModel: ObservableObject {
         suggestions = []
         msgs.append(ChatMsg(role: "user", text: q))
         msgs.append(ChatMsg(role: "typing", text: "..."))
-        let reply = try? await client.sendAndWait(q)
+        let reply = try? await client.sendAndWait(q, appContext: appContext?())
         msgs.removeAll { $0.role == "typing" }
         msgs.append(ChatMsg(role: "assistant", text: (reply ?? nil) ?? (oryksaTexts[lang]?["err"] ?? "")))
         busy = false
     }
 }
 
-/// The ORYKSA chat panel: header with the photo and name of the AI, messages, suggestions and input.
+/// Text with **bold** parts (the server marks them, the app only draws them).
+func oryksaBold(_ text: String) -> Text {
+    let parts = text.components(separatedBy: "**")
+    guard parts.count >= 3 else { return Text(text) }
+    var out = Text("")
+    for (i, p) in parts.enumerated() where !p.isEmpty {
+        out = out + (i % 2 == 1 ? Text(p).bold() : Text(p))
+    }
+    return out
+}
+
+/// The ORYKSA chat panel: header with the photo and name of the AI, messages, suggestions, input
+/// and (on iOS, when the plan has voice) the microphone that opens the voice conversation.
 public struct OryksaChatView: View {
     @StateObject private var model: OryksaChatModel
     @State private var text = ""
+    @State private var voiceOpen = false
     private let theme: OryksaChatTheme
     private let onClose: (() -> Void)?
+    private let voice: Bool
 
-    public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme(), onClose: (() -> Void)? = nil) {
-        _model = StateObject(wrappedValue: OryksaChatModel(client: client, lang: lang))
+    /// - appContext: where the customer is in your app right now (sent with each message).
+    /// - voice: shows the microphone when the plan has voice (needs NSMicrophoneUsageDescription).
+    public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme(),
+                appContext: (() -> OryksaAppContext?)? = nil, voice: Bool = true, onClose: (() -> Void)? = nil) {
+        _model = StateObject(wrappedValue: OryksaChatModel(client: client, lang: lang, appContext: appContext))
         self.theme = theme
         self.onClose = onClose
+        self.voice = voice
     }
 
     private var tx: [String: String] { oryksaTexts[model.lang] ?? oryksaTexts["en"]! }
@@ -118,7 +144,7 @@ public struct OryksaChatView: View {
                             let mine = m.role == "user"
                             HStack {
                                 if mine { Spacer(minLength: 40) }
-                                Text(m.text)
+                                oryksaBold(m.text)
                                     .font(.system(size: 14)).lineSpacing(3)
                                     .foregroundColor(mine ? .white : theme.ink)
                                     .padding(.horizontal, 14).padding(.vertical, 10)
@@ -156,6 +182,15 @@ public struct OryksaChatView: View {
                     .padding(.horizontal, 16).padding(.vertical, 14)
                     .submitLabel(.send)
                     .onSubmit { let t = text; text = ""; Task { await model.send(t) } }
+                #if os(iOS)
+                if voice && (model.agent?.voiceReplies ?? false) && text.isEmpty {
+                    Button { voiceOpen = true } label: {
+                        Image(systemName: "mic").font(.system(size: 18)).foregroundColor(theme.accent).padding(.horizontal, 12)
+                    }
+                    .accessibilityLabel(tx["voice"] ?? "Voice")
+                    .disabled(model.busy)
+                }
+                #endif
                 Button {
                     let t = text; text = ""; Task { await model.send(t) }
                 } label: {
@@ -172,6 +207,14 @@ public struct OryksaChatView: View {
         }
         .background(theme.background)
         .task { await model.load() }
+        #if os(iOS)
+        .fullScreenCover(isPresented: $voiceOpen) {
+            if let a = model.agent {
+                OryksaVoiceSheet(client: model.client, agent: a, lang: model.lang, theme: theme, appContext: model.appContext,
+                                 onUserText: { model.add("user", $0) }, onReply: { model.add("assistant", $0) }) { voiceOpen = false }
+            }
+        }
+        #endif
     }
 }
 
@@ -191,13 +234,18 @@ public struct OryksaChatButton: View {
     private let client: OryksaClient
     private let lang: String
     private let theme: OryksaChatTheme
+    private let appContext: (() -> OryksaAppContext?)?
+    private let voice: Bool
     @State private var agent: OryksaAgent?
     @State private var open = false
 
-    public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme()) {
+    public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme(),
+                appContext: (() -> OryksaAppContext?)? = nil, voice: Bool = true) {
         self.client = client
         self.lang = oryksaLang(lang)
         self.theme = theme
+        self.appContext = appContext
+        self.voice = voice
     }
 
     public var body: some View {
@@ -214,7 +262,7 @@ public struct OryksaChatButton: View {
         .buttonStyle(.plain)
         .task { if agent == nil { agent = try? await client.agent() } }
         .sheet(isPresented: $open) {
-            OryksaChatView(client: client, lang: lang, theme: theme) { open = false }
+            OryksaChatView(client: client, lang: lang, theme: theme, appContext: appContext, voice: voice) { open = false }
         }
     }
 }
@@ -224,9 +272,10 @@ import UIKit
 
 /// The chat for UIKit apps: present it with `present(OryksaChatViewController(client: client), animated: true)`.
 public final class OryksaChatViewController: UIHostingController<AnyView> {
-    public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme()) {
+    public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme(),
+                appContext: (() -> OryksaAppContext?)? = nil) {
         super.init(rootView: AnyView(EmptyView()))
-        rootView = AnyView(OryksaChatView(client: client, lang: lang, theme: theme) { [weak self] in
+        rootView = AnyView(OryksaChatView(client: client, lang: lang, theme: theme, appContext: appContext) { [weak self] in
             self?.dismiss(animated: true)
         })
     }
