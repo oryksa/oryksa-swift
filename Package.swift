@@ -9,6 +9,6 @@ let package = Package(
     ],
     targets: [
         .target(name: "Oryksa", path: "Sources/Oryksa"),
-        .testTarget(name: "OryksaTests", dependencies: ["Oryksa"], path: "Tests/OryksaTests"),
+        .testTarget(name: "OryksaTests", dependencies: ["Oryksa"], path: "Tests/OryksaTests", resources: [.copy("voice")]),
     ]
 )
