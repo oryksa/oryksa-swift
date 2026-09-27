@@ -16,7 +16,7 @@ struct DemoRoot: View {
     private var lang: String { args.string(forKey: "lang") ?? "en" }
     private let demoClient = OryksaClient(getToken: {
         let t = ProcessInfo.processInfo.environment["ORYKSA_TEST_TOKEN"] ?? ""
-        if t.isEmpty { throw OryksaError(status: 401, code: "no_token", message: "Get the token from your server.") }
+        if t.isEmpty { throw URLError(.userAuthenticationRequired) } // get the token from your server
         return t
     })
     @State private var agent: OryksaAgent?
