@@ -9,6 +9,7 @@ import Oryksa
 struct TokenResponse: Decodable { let token: String }
 
 let client = OryksaClient(getToken: {
+    if let t = ProcessInfo.processInfo.environment["ORYKSA_TEST_TOKEN"], !t.isEmpty { return t } // CI screenshots only
     let url = URL(string: "https://your-server.example/oryksa-token")!
     let (data, _) = try await URLSession.shared.data(from: url)
     return try JSONDecoder().decode(TokenResponse.self, from: data).token

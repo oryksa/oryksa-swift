@@ -1,0 +1,30 @@
+name: Screenshots
+on:
+  workflow_dispatch:
+jobs:
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate the example project
+        run: brew install xcodegen && cd Example && xcodegen
+      - name: Build for the simulator
+        run: |
+          cd Example
+          xcodebuild -project OryksaDemo.xcodeproj -scheme OryksaDemo -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build build CODE_SIGNING_ALLOWED=NO | tail -5
+      - name: Screenshots on a simulator
+        env: { SIMCTL_CHILD_ORYKSA_TEST_TOKEN: "${{ secrets.ORYKSA_TEST_TOKEN }}" }
+        run: |
+          mkdir -p shots
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next(x['udid'] for k,v in d.items() if 'iOS' in k for x in v if x['name'].startswith('iPhone')))")
+          xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl install "$UDID" Example/build/Build/Products/Debug-iphonesimulator/OryksaDemo.app
+          xcrun simctl privacy "$UDID" grant microphone com.oryksa.example
+          for s in product chat voice; do
+            xcrun simctl launch --terminate-running-process "$UDID" com.oryksa.example -screen $s -lang pt
+            sleep 15
+            xcrun simctl io "$UDID" screenshot shots/ios_$s.png
+          done
+      - uses: actions/upload-artifact@v4
+        with: { name: ios-screenshots, path: shots/*.png }

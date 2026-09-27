@@ -1,0 +1,20 @@
+name: OryksaDemo
+options:
+  bundleIdPrefix: com.oryksa
+  deploymentTarget: { iOS: "16.0" }
+packages:
+  Oryksa: { path: .. }
+targets:
+  OryksaDemo:
+    type: application
+    platform: iOS
+    sources: [DemoApp.swift, ContentView.swift]
+    dependencies:
+      - package: Oryksa
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.oryksa.example
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: To talk to our assistant by voice.
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        CODE_SIGNING_ALLOWED: NO
