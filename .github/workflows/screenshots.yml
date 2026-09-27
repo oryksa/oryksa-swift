@@ -14,7 +14,9 @@ jobs:
         run: |
           cd Example
           xcodebuild -project OryksaDemo.xcodeproj -scheme OryksaDemo -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator' -derivedDataPath build build CODE_SIGNING_ALLOWED=NO | tail -5
+            -destination 'generic/platform=iOS Simulator' -derivedDataPath build build CODE_SIGNING_ALLOWED=NO > build.log 2>&1 \
+            || { grep -E "error:" build.log | head -30; exit 1; }
+          tail -3 build.log
       - name: Screenshots on a simulator
         env: { SIMCTL_CHILD_ORYKSA_TEST_TOKEN: "${{ secrets.ORYKSA_TEST_TOKEN }}" }
         run: |
@@ -25,7 +27,7 @@ jobs:
           xcrun simctl privacy "$UDID" grant microphone com.oryksa.example
           for s in product chat voice; do
             xcrun simctl launch --terminate-running-process "$UDID" com.oryksa.example -screen $s -lang pt
-            sleep 15
+            if [ $s = voice ]; then sleep 4; else sleep 15; fi
             xcrun simctl io "$UDID" screenshot shots/ios_$s.png
           done
       - uses: actions/upload-artifact@v4
