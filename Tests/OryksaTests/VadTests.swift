@@ -176,14 +176,18 @@ final class VadTests: XCTestCase {
     }
     func cala(_ ficheiro: String) throws -> Bool {
         let vad = Vad(); vad.reset()
-        for c in chunks(try wav(ficheiro)) where vad.feed(c, speaking: true).isBargeIn { return true }
+        for c in chunks(try wav(ficheiro)) {
+            if vad.feed(c, speaking: true).isBargeIn { return true }
+        }
         return false
     }
     func testVozTemTomTecladoNao() throws {
         for v in ["para", "espera", "curta", "pausas"] {
-            XCTAssertGreaterThan(try tomMaximo(v), Vad.bargeVozMin, "\(v) deu tom \(try tomMaximo(v))")
+            let t = try tomMaximo(v)
+            XCTAssertGreaterThan(t, Vad.bargeVozMin, "\(v) deu tom \(t)")
         }
-        XCTAssertLessThan(try tomMaximo("teclado"), Vad.bargeVozMin)
+        let teclado = try tomMaximo("teclado")
+        XCTAssertLessThan(teclado, Vad.bargeVozMin, "as teclas deram tom \(teclado)")
     }
     func testPalavraCurtaParaCalaA() throws { XCTAssertTrue(try cala("para")) }
     func testEsperaTambemACala() throws { XCTAssertTrue(try cala("espera")) }
