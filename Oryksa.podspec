@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name             = 'Oryksa'
-  s.version          = '1.1.0'
+  s.version          = '1.1.1'
   s.summary          = 'Official iOS SDK for ORYKSA AI Employees: in-app AI chat and API v1 client.'
   s.description      = 'A ready SwiftUI and UIKit chat with the look of the ORYKSA website chat (name and photo of the AI from the ORYKSA account), and a client for the ORYKSA API v1 that uses short-lived session tokens.'
   s.homepage         = 'https://developer.oryksa.com/en/sdks'

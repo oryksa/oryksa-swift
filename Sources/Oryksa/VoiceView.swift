@@ -54,7 +54,8 @@ public struct OryksaVoiceView: View {
         switch controller.phase {
         case .starting, .listening: return (t["listening"]!, t["listeningSub"]!)
         case .hearing: return (t["listening"]!, t["hearing"]!)
-        case .thinking: return (controller.lastHeard.isEmpty ? "..." : controller.lastHeard, t["thinking"]!)
+        // Never the words the person said on screen: only "listening" in the interface language; her answer shows as text.
+        case .thinking: return (t["listening"]!, t["thinking"]!)
         case .speaking: return (agent.name, controller.lastReply)
         case .muted: return (t["muted"]!, t["mutedSub"]!)
         case .micError: return (t["micError"]!, t["micErrorSub"]!)
