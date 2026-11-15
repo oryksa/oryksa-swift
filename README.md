@@ -2,27 +2,13 @@
 
 # ORYKSA for iOS (Swift)
 
-Official Swift SDK for **ORYKSA AI Employees**. Put an AI employee that already knows your business inside your iOS or macOS app: a ready SwiftUI (and UIKit) chat with the same look as the ORYKSA website chat, the name and photo of your AI from your ORYKSA account, in English, Portuguese (Portugal and Brazil) and Spanish.
+[![English](https://img.shields.io/badge/English-0891b2?style=for-the-badge)](README.md) [![Português](https://img.shields.io/badge/Portugu%C3%AAs-30363d?style=for-the-badge)](README.pt.md) [![Español](https://img.shields.io/badge/Espa%C3%B1ol-30363d?style=for-the-badge)](README.es.md) [![Français](https://img.shields.io/badge/Fran%C3%A7ais-30363d?style=for-the-badge)](README.fr.md)
+
+Official Swift SDK for **ORYKSA AI Employees**. Put an AI employee that already knows your business inside your iOS or macOS app: a ready SwiftUI (and UIKit) chat with the same look as the ORYKSA website chat, the name and photo of your AI from your ORYKSA account, in English, Portuguese and Spanish.
 
 * Docs: https://developer.oryksa.com/en/sdks
 * API: `https://api.oryksa.com/v1`
 * iOS 15+, macOS 12+, no dependencies.
-
-**Read in:** English (this page), or open your language:
-
-<details>
-<summary><b>Português</b></summary>
-
-SDK oficial Swift da **ORYKSA AI Employees**: põe na tua app iOS um colaborador de IA que já conhece o teu negócio, com um chat SwiftUI pronto igual ao chat do site da ORYKSA, com o nome e a foto da tua IA. O teu servidor cria o token de sessão (`POST /v1/sessions`) e a app usa `OryksaClient(getToken:)` com `OryksaChatButton(client: client, lang: "pt")`. Cada resposta da IA conta como uma interação do teu plano.
-
-</details>
-
-<details>
-<summary><b>Español</b></summary>
-
-SDK oficial de Swift de **ORYKSA AI Employees**: pon en tu app iOS un empleado de IA que ya conoce tu negocio, con un chat SwiftUI listo igual al chat de la web de ORYKSA, con el nombre y la foto de tu IA. Tu servidor crea el token de sesión (`POST /v1/sessions`) y la app usa `OryksaClient(getToken:)` con `OryksaChatButton(client: client, lang: "es")`. Cada respuesta de la IA cuenta como una interacción de tu plan.
-
-</details>
 
 ## Install (Swift Package Manager)
 
