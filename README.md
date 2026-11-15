@@ -8,6 +8,29 @@ Official Swift SDK for **ORYKSA AI Employees**. Put an AI employee that already 
 * API: `https://api.oryksa.com/v1`
 * iOS 15+, macOS 12+, no dependencies.
 
+**Read in:** English (this page), or open your language:
+
+<details>
+<summary><b>Português (Portugal)</b></summary>
+
+SDK oficial Swift da **ORYKSA AI Employees**: põe na tua app iOS um colaborador de IA que já conhece o teu negócio, com um chat SwiftUI pronto igual ao chat do site da ORYKSA, com o nome e a foto da tua IA. O teu servidor cria o token de sessão (`POST /v1/sessions`) e a app usa `OryksaClient(getToken:)` com `OryksaChatButton(client: client, lang: "pt")`. Cada resposta da IA conta como uma interação do teu plano.
+
+</details>
+
+<details>
+<summary><b>Português (Brasil)</b></summary>
+
+SDK oficial Swift da **ORYKSA AI Employees**: coloque no seu app iOS um colaborador de IA que já conhece o seu negócio, com um chat SwiftUI pronto igual ao chat do site da ORYKSA, com o nome e a foto da sua IA. Seu servidor cria o token de sessão (`POST /v1/sessions`) e o app usa `OryksaClient(getToken:)` com `OryksaChatButton(client: client, lang: "br")`. Cada resposta da IA conta como uma interação do seu plano.
+
+</details>
+
+<details>
+<summary><b>Español</b></summary>
+
+SDK oficial de Swift de **ORYKSA AI Employees**: pon en tu app iOS un empleado de IA que ya conoce tu negocio, con un chat SwiftUI listo igual al chat de la web de ORYKSA, con el nombre y la foto de tu IA. Tu servidor crea el token de sesión (`POST /v1/sessions`) y la app usa `OryksaClient(getToken:)` con `OryksaChatButton(client: client, lang: "es")`. Cada respuesta de la IA cuenta como una interacción de tu plan.
+
+</details>
+
 ## Install (Swift Package Manager)
 
 In Xcode: **File > Add Package Dependencies**, paste `https://github.com/oryksa/oryksa-swift` and pick version `1.0.0`. Or in `Package.swift`:
@@ -77,18 +100,6 @@ On your server (for example with `@oryksa/sdk` on Node): `oryksa.learnApp({ name
 Failed calls throw `OryksaError` with `status`, `code` (for example `interaction_limit_reached`, `rate_limited`, `plan_required`) and `message`.
 
 ---
-
-## Português (Portugal)
-
-SDK oficial Swift da **ORYKSA AI Employees**: põe na tua app iOS um colaborador de IA que já conhece o teu negócio, com um chat SwiftUI pronto igual ao chat do site da ORYKSA, com o nome e a foto da tua IA. O teu servidor cria o token de sessão (`POST /v1/sessions`) e a app usa `OryksaClient(getToken:)` com `OryksaChatButton(client: client, lang: "pt")`. Cada resposta da IA conta como uma interação do teu plano.
-
-## Português (Brasil)
-
-SDK oficial Swift da **ORYKSA AI Employees**: coloque no seu app iOS um colaborador de IA que já conhece o seu negócio, com um chat SwiftUI pronto igual ao chat do site da ORYKSA, com o nome e a foto da sua IA. Seu servidor cria o token de sessão (`POST /v1/sessions`) e o app usa `OryksaClient(getToken:)` com `OryksaChatButton(client: client, lang: "br")`. Cada resposta da IA conta como uma interação do seu plano.
-
-## Español
-
-SDK oficial de Swift de **ORYKSA AI Employees**: pon en tu app iOS un empleado de IA que ya conoce tu negocio, con un chat SwiftUI listo igual al chat de la web de ORYKSA, con el nombre y la foto de tu IA. Tu servidor crea el token de sesión (`POST /v1/sessions`) y la app usa `OryksaClient(getToken:)` con `OryksaChatButton(client: client, lang: "es")`. Cada respuesta de la IA cuenta como una interacción de tu plan.
 
 ## About the author
 
