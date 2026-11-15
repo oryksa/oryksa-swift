@@ -11,16 +11,9 @@ Official Swift SDK for **ORYKSA AI Employees**. Put an AI employee that already 
 **Read in:** English (this page), or open your language:
 
 <details>
-<summary><b>Português (Portugal)</b></summary>
+<summary><b>Português</b></summary>
 
 SDK oficial Swift da **ORYKSA AI Employees**: põe na tua app iOS um colaborador de IA que já conhece o teu negócio, com um chat SwiftUI pronto igual ao chat do site da ORYKSA, com o nome e a foto da tua IA. O teu servidor cria o token de sessão (`POST /v1/sessions`) e a app usa `OryksaClient(getToken:)` com `OryksaChatButton(client: client, lang: "pt")`. Cada resposta da IA conta como uma interação do teu plano.
-
-</details>
-
-<details>
-<summary><b>Português (Brasil)</b></summary>
-
-SDK oficial Swift da **ORYKSA AI Employees**: coloque no seu app iOS um colaborador de IA que já conhece o seu negócio, com um chat SwiftUI pronto igual ao chat do site da ORYKSA, com o nome e a foto da sua IA. Seu servidor cria o token de sessão (`POST /v1/sessions`) e o app usa `OryksaClient(getToken:)` com `OryksaChatButton(client: client, lang: "br")`. Cada resposta da IA conta como uma interação do seu plano.
 
 </details>
 
