@@ -85,7 +85,7 @@ Las llamadas que fallan lanzan `OryksaError` con `status`, `code` (por ejemplo `
 **Weslley Harakawa** - Fundador de ORYKSA AI. En Lisboa, Portugal. Especialidades: inteligencia artificial, desarrollo web y móvil, tokenización en blockchain. Formación: University of the People.
 
 - LinkedIn: https://www.linkedin.com/in/weslleyharakawa/
-- ORYKSA AI Employees: https://oryksa.com (X: https://x.com/oryksa, Instagram: https://www.instagram.com/oryksaai, YouTube: https://www.youtube.com/@ORYKSAAI)
+- ORYKSA AI Employees: https://oryksa.com (X: https://x.com/oryksa, Instagram: https://www.instagram.com/oryksaai, YouTube: https://www.youtube.com/@ORYKSA)
 
 ---
 
