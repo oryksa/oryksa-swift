@@ -25,6 +25,8 @@ jobs:
           xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" Example/build/Build/Products/Debug-iphonesimulator/OryksaDemo.app
           xcrun simctl privacy "$UDID" grant microphone com.oryksa.example
+          # warm-up: the first voice launch on a fresh simulator can find the microphone busy
+          xcrun simctl launch "$UDID" com.oryksa.example -screen voice -lang en; sleep 8; xcrun simctl terminate "$UDID" com.oryksa.example || true
           for l in en pt; do for s in product chat theme voice; do
             xcrun simctl launch --terminate-running-process "$UDID" com.oryksa.example -screen $s -lang $l
             if [ $s = voice ]; then sleep 4; elif [ $s = chat ] || [ $s = theme ]; then sleep 30; else sleep 15; fi
