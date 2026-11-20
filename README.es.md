@@ -12,6 +12,12 @@ SDK oficial de Swift de **ORYKSA AI Employees**. Pon dentro de tu app iOS o macO
 * API: `https://api.oryksa.com/v1`
 * iOS 15 o superior, macOS 12 o superior, sin dependencias.
 
+## Capturas de pantalla
+
+<p align="center"><img src="docs/screenshots/ios_product_en.png" width="190" alt="Product page with the chat button"> <img src="docs/screenshots/ios_chat_en.png" width="190" alt="Chat"> <img src="docs/screenshots/ios_theme_en.png" width="190" alt="Chat with the README theme"> <img src="docs/screenshots/ios_voice_en.png" width="190" alt="Voice"></p>
+
+Pantallas reales de la app de ejemplo de este repositorio, capturadas por el CI en un simulador con una cuenta de prueba de ORYKSA. El chat verde usa el código de *Colores y tema*, más abajo.
+
 ## Instalar (Swift Package Manager)
 
 En Xcode: **File > Add Package Dependencies**, pega `https://github.com/oryksa/oryksa-swift` y elige la versión `1.0.0`. O en `Package.swift`:
