@@ -8,7 +8,7 @@ targets:
   OryksaDemo:
     type: application
     platform: iOS
-    sources: [DemoApp.swift, ContentView.swift]
+    sources: [DemoApp.swift, ContentView.swift, ThemeExample.swift]
     dependencies:
       - package: Oryksa
     settings:

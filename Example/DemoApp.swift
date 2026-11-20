@@ -1,4 +1,4 @@
-// The example app used for the screenshots. Launch arguments: -screen product|chat|voice -lang en|pt|br|es.
+// The example app used for the screenshots. Launch arguments: -screen product|chat|theme|voice -lang en|pt|br|es.
 // The session token comes from YOUR server; here, only for the CI screenshots, from the environment.
 import SwiftUI
 import Oryksa
@@ -27,6 +27,9 @@ struct DemoRoot: View {
             switch screen {
             case "chat":
                 OryksaChatView(client: demoClient, lang: lang,
+                               appContext: { OryksaAppContext(screen: "product", title: "\(product), 489.95", items: [product]) })
+            case "theme":
+                OryksaChatView(client: demoClient, lang: lang, theme: readmeTheme,
                                appContext: { OryksaAppContext(screen: "product", title: "\(product), 489.95", items: [product]) })
             case "voice":
                 if let a = agent {

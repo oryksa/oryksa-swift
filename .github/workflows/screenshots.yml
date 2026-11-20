@@ -25,10 +25,10 @@ jobs:
           xcrun simctl boot "$UDID"; xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" Example/build/Build/Products/Debug-iphonesimulator/OryksaDemo.app
           xcrun simctl privacy "$UDID" grant microphone com.oryksa.example
-          for s in product chat voice; do
-            xcrun simctl launch --terminate-running-process "$UDID" com.oryksa.example -screen $s -lang pt
-            if [ $s = voice ]; then sleep 4; elif [ $s = chat ]; then sleep 30; else sleep 15; fi
-            xcrun simctl io "$UDID" screenshot shots/ios_$s.png
-          done
+          for l in en pt; do for s in product chat theme voice; do
+            xcrun simctl launch --terminate-running-process "$UDID" com.oryksa.example -screen $s -lang $l
+            if [ $s = voice ]; then sleep 4; elif [ $s = chat ] || [ $s = theme ]; then sleep 30; else sleep 15; fi
+            xcrun simctl io "$UDID" screenshot shots/ios_${s}_${l}.png
+          done; done
       - uses: actions/upload-artifact@v4
         with: { name: ios-screenshots, path: shots/*.png }
