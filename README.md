@@ -78,6 +78,20 @@ On your server (for example with `@oryksa/sdk` on Node): `oryksa.learnApp({ name
 
 Failed calls throw `OryksaError` with `status`, `code` (for example `interaction_limit_reached`, `rate_limited`, `plan_required`) and `message`.
 
+## Colours and theme
+
+`OryksaChatTheme` has five colors: `accent` (buttons, visitor bubbles, links), `ink` (main text), `soft` (AI bubbles), `background` (panel) and `muted` (secondary text). Every one is a SwiftUI `Color` and has a default, so you only pass the ones you want to change.
+
+```swift
+let theme = OryksaChatTheme(accent: Color(red: 0.05, green: 0.54, blue: 0.42))
+
+OryksaChatButton(client: client, lang: "en", theme: theme)
+// or the panel: OryksaChatView(client: client, theme: theme)
+// or UIKit: OryksaChatViewController(client: client, theme: theme)
+```
+
+There is no automatic dark theme: for dark mode, pass your own dark colors.
+
 ---
 
 ## About the author
