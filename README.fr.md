@@ -20,16 +20,16 @@ SDK Swift officiel d'**ORYKSA AI Employees**. Mettez dans votre app iOS ou macOS
 
 ## Installer (Swift Package Manager)
 
-Dans Xcode : **File > Add Package Dependencies**, collez `https://github.com/oryksa/oryksa-swift` et choisissez la version `1.1.2`. Ou dans `Package.swift` :
+Dans Xcode : **File > Add Package Dependencies**, collez `https://github.com/oryksa/oryksa-swift` et choisissez la version `1.1.3`. Ou dans `Package.swift` :
 
 ```swift
-.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.2")
+.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.3")
 ```
 
 CocoaPods :
 
 ```ruby
-pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.2'
+pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.3'
 ```
 
 ## À quoi il sert
@@ -48,6 +48,20 @@ Autorisation du micro : ajoutez `NSMicrophoneUsageDescription` à Info.plist (la
 OryksaChatButton(client: client, lang: "pt",
                  appContext: { OryksaAppContext(screen: "product", title: "Sky Beginner Snowboard, 489.95") })
 ```
+
+## Liens avec un bouton pour les ouvrir (1.1.3)
+
+Les liens que donne l'IA se touchent dans le chat (adresses web et e-mails), et chaque lien web a une carte sous sa réponse avec la photo et le titre de la page et un bouton pour l'ouvrir (les pages de votre propre site, les domaines de votre chat web ; les autres sites montrent l'adresse). L'écran vocal montre ce qu'elle dit sans les adresses, avec les mêmes cartes ; toucher le bouton ferme l'écran vocal. Passez `onLink` pour ouvrir vos propres écrans, par exemple la page du produit : renvoyez true quand votre app l'a ouvert, false pour laisser le navigateur l'ouvrir.
+
+```swift
+OryksaChatButton(client: client, lang: "en", onLink: { url in
+    guard let id = myProductId(url) else { return false } // vos routes
+    router.showProduct(id)
+    return true
+})
+```
+
+`onLink` existe aussi sur `OryksaChatView`, `OryksaChatViewController`, `OryksaVoiceView` et `OryksaVoiceSheet`. Sur iOS 15, toucher un lien dans le texte ouvre le navigateur ; le bouton passe par `onLink` sur toutes les versions.
 
 ## Comment ça marche (et pourquoi la clé reste en sécurité)
 

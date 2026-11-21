@@ -20,6 +20,8 @@ public final class OryksaVoiceController: NSObject, ObservableObject, AVAudioPla
     @Published public private(set) var phase: OryksaVoicePhase = .starting
     /// Last thing the AI said and the customer said.
     @Published public private(set) var lastReply = ""
+    /// What she said out loud last (the short spoken version of `lastReply`).
+    @Published public private(set) var lastSpoken = ""
     @Published public private(set) var lastHeard = ""
 
     public let client: OryksaClient
@@ -236,15 +238,18 @@ public final class OryksaVoiceController: NSObject, ObservableObject, AVAudioPla
             guard !closed, my == turn else { return }
             let reply = (r?.reply ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !reply.isEmpty else { busy = false; set(.notUnderstood); return }
-            lastReply = reply
-            onReply?(reply)
             let speech = (r?.speech ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            await speak(speech.isEmpty ? reply : speech, my)
+            lastReply = reply
+            lastSpoken = speech.isEmpty ? reply : speech
+            onReply?(reply)
+            await speak(lastSpoken, my)
         }
     }
 
     /// Speaks `text` with the AI's voice (for example a greeting). If the voice fails she stays silent.
     public func say(_ text: String) async {
+        lastReply = text
+        lastSpoken = text
         turn += 1
         await speak(text, turn)
     }

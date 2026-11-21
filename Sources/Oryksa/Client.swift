@@ -2,7 +2,7 @@
 import Foundation
 
 /// SDK version sent in the `X-ORYKSA-SDK` header.
-public let oryksaSDKVersion = "1.1.2"
+public let oryksaSDKVersion = "1.1.3"
 
 /// Error returned by the ORYKSA API. `code` is stable, for example
 /// `interaction_limit_reached`, `rate_limited`, `plan_required` or `session_expired`.
@@ -95,6 +95,35 @@ public struct OryksaReply: Decodable {
     }
 }
 
+/// Title and picture of a link of the business's own site (`OryksaClient.linkPreview`).
+public struct OryksaLinkPreview: Decodable, Equatable {
+    /// The link.
+    public let url: String
+    /// Title of the page (empty for other sites).
+    public let title: String
+    /// Picture of the page (empty when it has none).
+    public let image: String
+    /// Name of the site.
+    public let site: String
+    /// Price, when the page says it (shops).
+    public let price: String
+    enum CodingKeys: String, CodingKey { case url, title, image, site, price }
+
+    public init(url: String, title: String = "", image: String = "", site: String = "", price: String = "") {
+        self.url = url; self.title = title; self.image = image; self.site = site; self.price = price
+    }
+
+    public init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        func text(_ k: CodingKeys) -> String {
+            if let s = try? c.decode(String.self, forKey: k) { return s }
+            if let n = try? c.decode(Double.self, forKey: k) { return n == n.rounded() && abs(n) < 1e15 ? String(Int(n)) : String(n) }
+            return ""
+        }
+        url = text(.url); title = text(.title); image = text(.image); site = text(.site); price = text(.price)
+    }
+}
+
 /// Where the customer is inside your app. Sent with each message so the AI knows the current
 /// screen (for example a product page) and answers about it.
 public struct OryksaAppContext: Equatable {
@@ -142,8 +171,10 @@ public final class OryksaClient {
     }
 
     private func raw(_ method: String, _ path: String, _ body: [String: Any]?, force: Bool,
-                     upload: (data: Data, filename: String, type: String)? = nil) async throws -> Data {
-        var req = URLRequest(url: base.appendingPathComponent(path))
+                     upload: (data: Data, filename: String, type: String)? = nil, query: String? = nil) async throws -> Data {
+        var url = base.appendingPathComponent(path)
+        if let q = query, let withQuery = URL(string: url.absoluteString + "?" + q) { url = withQuery }
+        var req = URLRequest(url: url)
         req.httpMethod = method
         req.timeoutInterval = 60
         req.setValue("Bearer \(try await currentToken(force: force))", forHTTPHeaderField: "Authorization")
@@ -174,17 +205,46 @@ public final class OryksaClient {
     }
 
     private func request(_ method: String, _ path: String, _ body: [String: Any]? = nil,
-                         upload: (data: Data, filename: String, type: String)? = nil) async throws -> Data {
+                         upload: (data: Data, filename: String, type: String)? = nil, query: String? = nil) async throws -> Data {
         do {
-            return try await raw(method, path, body, force: false, upload: upload)
+            return try await raw(method, path, body, force: false, upload: upload, query: query)
         } catch let e as OryksaError where (e.code == "session_expired" || e.status == 401) && getToken != nil {
-            return try await raw(method, path, body, force: true, upload: upload)
+            return try await raw(method, path, body, force: true, upload: upload, query: query)
         }
     }
 
     /// Name, photo, greeting and suggestions of the AI employee.
     public func agent() async throws -> OryksaAgent {
         try JSONDecoder().decode(OryksaAgent.self, from: try await request("GET", "client/agent"))
+    }
+
+    private var previews: [String: OryksaLinkPreview] = [:]
+    private let previewsLock = NSLock()
+
+    private func cachedPreview(_ url: String) -> OryksaLinkPreview? {
+        previewsLock.lock(); defer { previewsLock.unlock() }
+        return previews[url]
+    }
+
+    private func keepPreview(_ url: String, _ p: OryksaLinkPreview) {
+        previewsLock.lock(); defer { previewsLock.unlock() }
+        if previews.count > 200 { previews.removeAll() }
+        previews[url] = p
+    }
+
+    /// Characters kept as they are in a query value (everything else is percent-encoded).
+    private static let queryValueChars = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~")
+
+    /// Title and picture of a link the AI gave, for the card under her reply. Only the pages of the
+    /// business's own site (its website chat domains) get a title and a picture. Nil when it cannot
+    /// be read; never throws. Kept in memory for this client.
+    public func linkPreview(_ url: String) async -> OryksaLinkPreview? {
+        if let hit = cachedPreview(url) { return hit }
+        guard let enc = url.addingPercentEncoding(withAllowedCharacters: OryksaClient.queryValueChars),
+              let d = try? await request("GET", "client/link-preview", query: "url=" + enc),
+              let p = try? JSONDecoder().decode(OryksaLinkPreview.self, from: d) else { return nil }
+        keepPreview(url, p)
+        return p
     }
 
     /// Sends a message. The status is `pending` when the AI needs a few more seconds.

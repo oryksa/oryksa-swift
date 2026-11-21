@@ -20,16 +20,16 @@ Real screens of the example app in this repository, taken by CI on a simulator w
 
 ## Install (Swift Package Manager)
 
-In Xcode: **File > Add Package Dependencies**, paste `https://github.com/oryksa/oryksa-swift` and pick version `1.1.2`. Or in `Package.swift`:
+In Xcode: **File > Add Package Dependencies**, paste `https://github.com/oryksa/oryksa-swift` and pick version `1.1.3`. Or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.2")
+.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.3")
 ```
 
 CocoaPods:
 
 ```ruby
-pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.2'
+pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.3'
 ```
 
 ## What it is for
@@ -48,6 +48,20 @@ Microphone permission: add `NSMicrophoneUsageDescription` to Info.plist (voice i
 OryksaChatButton(client: client, lang: "pt",
                  appContext: { OryksaAppContext(screen: "product", title: "Sky Beginner Snowboard, 489.95") })
 ```
+
+## Links with an Open button (1.1.3)
+
+The links the AI gives can be tapped in the chat (web addresses and e-mails), and each web link gets a card under her reply with the picture and title of the page and an **Open** button (the pages of your own site, the domains of your website chat; other sites show the address). The voice screen shows what she says without the addresses, with the same cards; tapping Open closes the voice screen. Pass `onLink` to open your own screens, for example your product page: return true when your app opened it, false to let the browser open it.
+
+```swift
+OryksaChatButton(client: client, lang: "en", onLink: { url in
+    guard let id = myProductId(url) else { return false } // your routes
+    router.showProduct(id)
+    return true
+})
+```
+
+`onLink` is also on `OryksaChatView`, `OryksaChatViewController`, `OryksaVoiceView` and `OryksaVoiceSheet`. On iOS 15 a tap on a link inside the text opens the browser; the Open button goes to `onLink` on every version.
 
 ## How it works (and why the key stays safe)
 

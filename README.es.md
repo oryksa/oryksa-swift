@@ -20,16 +20,16 @@ Pantallas reales de la app de ejemplo de este repositorio, capturadas por el CI 
 
 ## Instalar (Swift Package Manager)
 
-En Xcode: **File > Add Package Dependencies**, pega `https://github.com/oryksa/oryksa-swift` y elige la versión `1.0.0`. O en `Package.swift`:
+En Xcode: **File > Add Package Dependencies**, pega `https://github.com/oryksa/oryksa-swift` y elige la versión `1.1.3`. O en `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.2")
+.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.3")
 ```
 
 CocoaPods:
 
 ```ruby
-pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.2'
+pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.3'
 ```
 
 ## Para qué sirve
@@ -48,6 +48,20 @@ Permiso de micrófono: añade `NSMicrophoneUsageDescription` a Info.plist (la vo
 OryksaChatButton(client: client, lang: "pt",
                  appContext: { OryksaAppContext(screen: "product", title: "Sky Beginner Snowboard, 489.95") })
 ```
+
+## Enlaces con botón Abrir (1.1.3)
+
+Los enlaces que da la IA se pueden tocar en el chat (direcciones web y e-mails), y cada enlace web tiene una tarjeta debajo de su respuesta con la foto y el título de la página y un botón **Abrir** (las páginas de tu propio sitio, los dominios de tu chat web; otros sitios muestran la dirección). La pantalla de voz muestra lo que ella dice sin las direcciones, con las mismas tarjetas; tocar Abrir cierra la pantalla de voz. Pasa `onLink` para abrir tus propias pantallas, por ejemplo la página del producto: devuelve true cuando tu app lo abrió, false para que lo abra el navegador.
+
+```swift
+OryksaChatButton(client: client, lang: "es", onLink: { url in
+    guard let id = myProductId(url) else { return false } // tus rutas
+    router.showProduct(id)
+    return true
+})
+```
+
+`onLink` también está en `OryksaChatView`, `OryksaChatViewController`, `OryksaVoiceView` y `OryksaVoiceSheet`. En iOS 15, tocar un enlace dentro del texto abre el navegador; el botón Abrir pasa por `onLink` en todas las versiones.
 
 ## Cómo funciona (y por qué la clave está segura)
 

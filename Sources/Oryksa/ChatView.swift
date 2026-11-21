@@ -22,10 +22,10 @@ public struct OryksaChatTheme {
 }
 
 let oryksaTexts: [String: [String: String]] = [
-    "en": ["talk": "Talk to", "ph": "Type your question", "send": "Send", "err": "Sorry, something went wrong. Try again.", "voice": "Talk by voice", "copy": "Copy"],
-    "pt": ["talk": "Falar com", "ph": "Escreve a tua pergunta", "send": "Enviar", "err": "Desculpa, algo correu mal. Tenta de novo.", "voice": "Falar por voz", "copy": "Copiar"],
-    "br": ["talk": "Falar com", "ph": "Digite sua pergunta", "send": "Enviar", "err": "Desculpe, algo deu errado. Tente de novo.", "voice": "Falar por voz", "copy": "Copiar"],
-    "es": ["talk": "Hablar con", "ph": "Escribe tu pregunta", "send": "Enviar", "err": "Lo siento, algo salió mal. Inténtalo de nuevo.", "voice": "Hablar por voz", "copy": "Copiar"],
+    "en": ["talk": "Talk to", "ph": "Type your question", "send": "Send", "err": "Sorry, something went wrong. Try again.", "voice": "Talk by voice", "copy": "Copy", "open": "Open"],
+    "pt": ["talk": "Falar com", "ph": "Escreve a tua pergunta", "send": "Enviar", "err": "Desculpa, algo correu mal. Tenta de novo.", "voice": "Falar por voz", "copy": "Copiar", "open": "Abrir"],
+    "br": ["talk": "Falar com", "ph": "Digite sua pergunta", "send": "Enviar", "err": "Desculpe, algo deu errado. Tente de novo.", "voice": "Falar por voz", "copy": "Copiar", "open": "Abrir"],
+    "es": ["talk": "Hablar con", "ph": "Escribe tu pregunta", "send": "Enviar", "err": "Lo siento, algo salió mal. Inténtalo de nuevo.", "voice": "Hablar por voz", "copy": "Copiar", "open": "Abrir"],
 ]
 
 func oryksaLang(_ l: String) -> String { oryksaTexts[l] != nil ? l : "en" }
@@ -112,15 +112,26 @@ public struct OryksaChatView: View {
     private let theme: OryksaChatTheme
     private let onClose: (() -> Void)?
     private let voice: Bool
+    private let onLink: OryksaLinkHandler?
 
     /// - appContext: where the customer is in your app right now (sent with each message).
     /// - voice: shows the microphone when the plan has voice (needs NSMicrophoneUsageDescription).
     public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme(),
                 appContext: (() -> OryksaAppContext?)? = nil, voice: Bool = true, onClose: (() -> Void)? = nil) {
+        self.init(client: client, lang: lang, theme: theme, appContext: appContext, voice: voice, onLink: nil, onClose: onClose)
+    }
+
+    /// The same chat with `onLink`: what your app does with a link the AI gave (see
+    /// `OryksaLinkHandler`). Nil: the browser or the app that owns the address opens it.
+    /// (A separate init, so `OryksaChatView(client: client) { close() }` keeps closing the chat.)
+    public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme(),
+                appContext: (() -> OryksaAppContext?)? = nil, voice: Bool = true, onLink: OryksaLinkHandler?,
+                onClose: (() -> Void)? = nil) {
         _model = StateObject(wrappedValue: OryksaChatModel(client: client, lang: lang, appContext: appContext))
         self.theme = theme
         self.onClose = onClose
         self.voice = voice
+        self.onLink = onLink
     }
 
     private var tx: [String: String] { oryksaTexts[model.lang] ?? oryksaTexts["en"]! }
@@ -151,9 +162,12 @@ public struct OryksaChatView: View {
                             VStack(alignment: .leading, spacing: 2) {
                             HStack {
                                 if mine { Spacer(minLength: 40) }
-                                oryksaBold(mine && model.profanityReady ? OryksaProfanity.mask(m.text, model.lang) : m.text)
+                                Text(oryksaRichText(mine && model.profanityReady ? OryksaProfanity.mask(m.text, model.lang) : m.text,
+                                                    linkColor: mine ? .white : theme.accent))
                                     .font(.system(size: 14)).lineSpacing(3)
                                     .foregroundColor(mine ? .white : theme.ink)
+                                    .tint(mine ? .white : theme.accent)
+                                    .modifier(OryksaLinkRouting(onLink: onLink))
                                     .padding(.horizontal, 14).padding(.vertical, 10)
                                     .background(mine ? theme.accent : theme.soft)
                                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -161,8 +175,17 @@ public struct OryksaChatView: View {
                                     .textSelection(.enabled)
                                 if !mine { Spacer(minLength: 40) }
                             }
-                            // Copy button under each reply of the AI (same as the ORYKSA apps and extension).
+                            // A card with an Open button for each link of the reply (owner 2026-11-21: the links
+                            // were plain text), then the copy button (same as the ORYKSA apps and extension).
                             if !mine && m.role != "typing" && !m.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                ForEach(oryksaLinksIn(m.text), id: \.self) { u in
+                                    HStack {
+                                        OryksaLinkCard(url: u, client: model.client, openLabel: tx["open"] ?? "Open", onLink: onLink,
+                                                       accent: theme.accent, ink: theme.ink, muted: theme.muted, background: theme.background)
+                                        Spacer(minLength: 40)
+                                    }
+                                    .padding(.top, 4)
+                                }
                                 OryksaCopyButton(text: m.text.replacingOccurrences(of: "**", with: ""), label: tx["copy"] ?? "Copy", color: theme.muted)
                             }
                             }
@@ -223,7 +246,8 @@ public struct OryksaChatView: View {
         .fullScreenCover(isPresented: $voiceOpen) {
             if let a = model.agent {
                 OryksaVoiceSheet(client: model.client, agent: a, lang: model.lang, theme: theme, appContext: model.appContext,
-                                 onUserText: { model.add("user", $0) }, onReply: { model.add("assistant", $0) }) { voiceOpen = false }
+                                 onUserText: { model.add("user", $0) }, onReply: { model.add("assistant", $0) },
+                                 onClose: { voiceOpen = false }, onLink: onLink)
             }
         }
         #endif
@@ -248,16 +272,20 @@ public struct OryksaChatButton: View {
     private let theme: OryksaChatTheme
     private let appContext: (() -> OryksaAppContext?)?
     private let voice: Bool
+    private let onLink: OryksaLinkHandler?
     @State private var agent: OryksaAgent?
     @State private var open = false
 
+    /// - onLink: what your app does with a link the AI gave (see `OryksaLinkHandler`), for
+    ///   example your own product screen for the links of your site.
     public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme(),
-                appContext: (() -> OryksaAppContext?)? = nil, voice: Bool = true) {
+                appContext: (() -> OryksaAppContext?)? = nil, voice: Bool = true, onLink: OryksaLinkHandler? = nil) {
         self.client = client
         self.lang = oryksaLang(lang)
         self.theme = theme
         self.appContext = appContext
         self.voice = voice
+        self.onLink = onLink
     }
 
     public var body: some View {
@@ -274,7 +302,7 @@ public struct OryksaChatButton: View {
         .buttonStyle(.plain)
         .task { if agent == nil { agent = try? await client.agent() } }
         .sheet(isPresented: $open) {
-            OryksaChatView(client: client, lang: lang, theme: theme, appContext: appContext, voice: voice) { open = false }
+            OryksaChatView(client: client, lang: lang, theme: theme, appContext: appContext, voice: voice, onLink: onLink) { open = false }
         }
     }
 }
@@ -284,10 +312,11 @@ import UIKit
 
 /// The chat for UIKit apps: present it with `present(OryksaChatViewController(client: client), animated: true)`.
 public final class OryksaChatViewController: UIHostingController<AnyView> {
+    /// - onLink: what your app does with a link the AI gave (see `OryksaLinkHandler`).
     public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme(),
-                appContext: (() -> OryksaAppContext?)? = nil) {
+                appContext: (() -> OryksaAppContext?)? = nil, onLink: OryksaLinkHandler? = nil) {
         super.init(rootView: AnyView(EmptyView()))
-        rootView = AnyView(OryksaChatView(client: client, lang: lang, theme: theme, appContext: appContext) { [weak self] in
+        rootView = AnyView(OryksaChatView(client: client, lang: lang, theme: theme, appContext: appContext, onLink: onLink) { [weak self] in
             self?.dismiss(animated: true)
         })
     }

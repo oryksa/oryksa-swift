@@ -20,16 +20,16 @@ Ecrãs reais da app de exemplo deste repositório, captados pelo CI num simulado
 
 ## Instalar (Swift Package Manager)
 
-No Xcode: **File > Add Package Dependencies**, cola `https://github.com/oryksa/oryksa-swift` e escolhe a versão `1.0.0`. Ou no `Package.swift`:
+No Xcode: **File > Add Package Dependencies**, cola `https://github.com/oryksa/oryksa-swift` e escolhe a versão `1.1.3`. Ou no `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.2")
+.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.3")
 ```
 
 CocoaPods:
 
 ```ruby
-pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.2'
+pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.3'
 ```
 
 ## Para que serve
@@ -48,6 +48,20 @@ Permissão do microfone: adiciona `NSMicrophoneUsageDescription` ao Info.plist (
 OryksaChatButton(client: client, lang: "pt",
                  appContext: { OryksaAppContext(screen: "product", title: "Sky Beginner Snowboard, 489.95") })
 ```
+
+## Links com botão Abrir (1.1.3)
+
+Os links que a IA dá ficam clicáveis no chat (endereços web e e-mails), e cada link web ganha um cartão por baixo da resposta com a foto e o título da página e um botão **Abrir** (as páginas do teu próprio site, os domínios do teu chat do site; outros sites mostram o endereço). O ecrã de voz mostra o que ela diz sem os endereços, com os mesmos cartões; tocar em Abrir fecha o ecrã de voz. Passa `onLink` para abrir os teus próprios ecrãs, por exemplo a página do produto: devolve true quando a tua app o abriu, false para o navegador o abrir.
+
+```swift
+OryksaChatButton(client: client, lang: "pt", onLink: { url in
+    guard let id = myProductId(url) else { return false } // as tuas rotas
+    router.showProduct(id)
+    return true
+})
+```
+
+`onLink` também existe em `OryksaChatView`, `OryksaChatViewController`, `OryksaVoiceView` e `OryksaVoiceSheet`. No iOS 15, tocar num link dentro do texto abre o navegador; o botão Abrir passa por `onLink` em todas as versões.
 
 ## Como funciona (e porque é que a chave fica segura)
 

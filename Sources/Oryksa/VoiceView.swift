@@ -8,25 +8,25 @@ let oryksaVoiceTexts: [String: [String: String]] = [
            "micError": "Microphone unavailable", "micErrorSub": "Allow microphone access, or close other apps using it.",
            "noisy": "Too much background noise", "noisySub": "I cannot tell your voice from the noise. Move somewhere quieter, or type to me.",
            "notUnderstood": "I could not understand", "notUnderstoodSub": "Say it again, please.",
-           "tapToSend": "Tap the picture to send what you said.", "mute": "Mute", "unmute": "Unmute", "close": "Close"],
+           "tapToSend": "Tap the picture to send what you said.", "mute": "Mute", "unmute": "Unmute", "close": "Close", "open": "Open"],
     "pt": ["listening": "Estou a ouvir", "listeningSub": "Fala comigo. Podes interromper-me quando quiseres.", "hearing": "Continua, estou a ouvir.",
            "thinking": "Um momento...", "muted": "Em pausa", "mutedSub": "Toca no microfone para voltar a falar.",
            "micError": "Microfone indisponível", "micErrorSub": "Permite o acesso ao microfone, ou fecha outras apps que o estejam a usar.",
            "noisy": "Demasiado barulho", "noisySub": "Não consigo distinguir a tua voz do barulho. Vai para um sítio mais calmo, ou escreve-me.",
            "notUnderstood": "Não percebi", "notUnderstoodSub": "Diz outra vez, por favor.",
-           "tapToSend": "Toca na imagem para enviar o que disseste.", "mute": "Silenciar", "unmute": "Ativar som", "close": "Fechar"],
+           "tapToSend": "Toca na imagem para enviar o que disseste.", "mute": "Silenciar", "unmute": "Ativar som", "close": "Fechar", "open": "Abrir"],
     "br": ["listening": "Estou ouvindo", "listeningSub": "Fale comigo. Você pode me interromper quando quiser.", "hearing": "Continue, estou ouvindo.",
            "thinking": "Um momento...", "muted": "Em pausa", "mutedSub": "Toque no microfone para voltar a falar.",
            "micError": "Microfone indisponível", "micErrorSub": "Permita o acesso ao microfone, ou feche outros apps que estejam usando.",
            "noisy": "Barulho demais", "noisySub": "Não consigo separar sua voz do barulho. Vá para um lugar mais calmo, ou digite para mim.",
            "notUnderstood": "Não entendi", "notUnderstoodSub": "Fale de novo, por favor.",
-           "tapToSend": "Toque na imagem para enviar o que você disse.", "mute": "Silenciar", "unmute": "Ativar som", "close": "Fechar"],
+           "tapToSend": "Toque na imagem para enviar o que você disse.", "mute": "Silenciar", "unmute": "Ativar som", "close": "Fechar", "open": "Abrir"],
     "es": ["listening": "Te escucho", "listeningSub": "Háblame. Puedes interrumpirme cuando quieras.", "hearing": "Sigue, te escucho.",
            "thinking": "Un momento...", "muted": "En pausa", "mutedSub": "Toca el micrófono para volver a hablar.",
            "micError": "Micrófono no disponible", "micErrorSub": "Permite el acceso al micrófono, o cierra otras apps que lo estén usando.",
            "noisy": "Demasiado ruido", "noisySub": "No distingo tu voz del ruido. Ve a un sitio más tranquilo, o escríbeme.",
            "notUnderstood": "No te entendí", "notUnderstoodSub": "Dilo otra vez, por favor.",
-           "tapToSend": "Toca la imagen para enviar lo que dijiste.", "mute": "Silenciar", "unmute": "Activar sonido", "close": "Cerrar"],
+           "tapToSend": "Toca la imagen para enviar lo que dijiste.", "mute": "Silenciar", "unmute": "Activar sonido", "close": "Cerrar", "open": "Abrir"],
 ]
 
 /// Full-screen voice conversation: the photo of the AI with a halo, "I'm listening" / her answer,
@@ -37,15 +37,19 @@ public struct OryksaVoiceView: View {
     let lang: String
     let theme: OryksaChatTheme
     let onClose: () -> Void
+    let onLink: OryksaLinkHandler?
     @State private var pulse = false
 
+    /// - onLink: what your app does with a link the AI gave (see `OryksaLinkHandler`). The links of
+    ///   her answer show as cards with an Open button; tapping one closes the voice screen.
     public init(controller: OryksaVoiceController, agent: OryksaAgent, lang: String = "en",
-                theme: OryksaChatTheme = OryksaChatTheme(), onClose: @escaping () -> Void) {
+                theme: OryksaChatTheme = OryksaChatTheme(), onClose: @escaping () -> Void, onLink: OryksaLinkHandler? = nil) {
         self.controller = controller
         self.agent = agent
         self.lang = oryksaVoiceTexts[lang] != nil ? lang : "en"
         self.theme = theme
         self.onClose = onClose
+        self.onLink = onLink
     }
 
     private var t: [String: String] { oryksaVoiceTexts[lang]! }
@@ -56,7 +60,8 @@ public struct OryksaVoiceView: View {
         case .hearing: return (t["listening"]!, t["hearing"]!)
         // Never the words the person said on screen: only "listening" in the interface language; her answer shows as text.
         case .thinking: return (t["listening"]!, t["thinking"]!)
-        case .speaking: return (agent.name, controller.lastReply)
+        // What she says out loud, without the addresses: the links are the cards below (owner 2026-11-21).
+        case .speaking: return (agent.name, oryksaWithoutLinks(controller.lastSpoken.isEmpty ? controller.lastReply : controller.lastSpoken))
         case .muted: return (t["muted"]!, t["mutedSub"]!)
         case .micError: return (t["micError"]!, t["micErrorSub"]!)
         case .noisy: return (t["noisy"]!, t["noisySub"]!)
@@ -94,7 +99,13 @@ public struct OryksaVoiceView: View {
             Text(title).font(.system(size: 22, weight: .bold)).foregroundColor(theme.ink).multilineTextAlignment(.center)
                 .padding(.top, 14).padding(.horizontal, 30)
             Text(sub).font(.system(size: 13.5)).foregroundColor(theme.muted).multilineTextAlignment(.center)
-                .lineSpacing(4).padding(.top, 8).padding(.horizontal, 30)
+                .lineSpacing(4).lineLimit(7).padding(.top, 8).padding(.horizontal, 30)
+            ForEach(oryksaLinksIn(controller.lastReply), id: \.self) { u in
+                OryksaLinkCard(url: u, client: controller.client, openLabel: t["open"]!, onLink: onLink,
+                               accent: theme.accent, ink: theme.ink, muted: theme.muted, background: theme.background,
+                               onOpened: close)
+                    .padding(.top, 10).padding(.horizontal, 30)
+            }
             if controller.phase == .hearing {
                 Text(t["tapToSend"]!).font(.system(size: 11.5)).foregroundColor(.gray).padding(.top, 10)
             }
@@ -141,20 +152,23 @@ public struct OryksaVoiceSheet: View {
     let lang: String
     let theme: OryksaChatTheme
     let onClose: () -> Void
+    let onLink: OryksaLinkHandler?
 
+    /// - onLink: what your app does with a link the AI gave (see `OryksaLinkHandler`).
     public init(client: OryksaClient, agent: OryksaAgent, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme(),
                 appContext: (() -> OryksaAppContext?)? = nil, onUserText: ((String) -> Void)? = nil,
-                onReply: ((String) -> Void)? = nil, onClose: @escaping () -> Void) {
+                onReply: ((String) -> Void)? = nil, onClose: @escaping () -> Void, onLink: OryksaLinkHandler? = nil) {
         _controller = StateObject(wrappedValue: OryksaVoiceController(client: client, appContext: appContext,
                                                                       onUserText: onUserText, onReply: onReply))
         self.agent = agent
         self.lang = lang
         self.theme = theme
         self.onClose = onClose
+        self.onLink = onLink
     }
 
     public var body: some View {
-        OryksaVoiceView(controller: controller, agent: agent, lang: lang, theme: theme, onClose: onClose)
+        OryksaVoiceView(controller: controller, agent: agent, lang: lang, theme: theme, onClose: onClose, onLink: onLink)
     }
 }
 #endif
