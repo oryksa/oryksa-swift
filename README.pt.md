@@ -14,7 +14,7 @@ SDK oficial Swift da **ORYKSA AI Employees**. Põe dentro da tua app iOS ou macO
 
 ## Capturas de ecrã
 
-<p align="center"><img src="docs/screenshots/ios_product_pt.png" width="190" alt="Página de produto com o botão do chat"> <img src="docs/screenshots/ios_chat_pt.png" width="190" alt="Chat"> <img src="docs/screenshots/ios_theme_pt.png" width="190" alt="Chat com o tema do README"> <img src="docs/screenshots/ios_voice_pt.png" width="190" alt="Voz"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/oryksa/oryksa-swift/main/docs/screenshots/ios_product_pt.png" width="190" alt="Página de produto com o botão do chat"> <img src="https://raw.githubusercontent.com/oryksa/oryksa-swift/main/docs/screenshots/ios_chat_pt.png" width="190" alt="Chat"> <img src="https://raw.githubusercontent.com/oryksa/oryksa-swift/main/docs/screenshots/ios_theme_pt.png" width="190" alt="Chat com o tema do README"> <img src="https://raw.githubusercontent.com/oryksa/oryksa-swift/main/docs/screenshots/ios_voice_pt.png" width="190" alt="Voz"></p>
 
 Ecrãs reais da app de exemplo deste repositório, captados pelo CI num simulador com uma conta de teste da ORYKSA. O chat verde usa o código de *Cores e tema*, mais abaixo.
 
@@ -23,13 +23,13 @@ Ecrãs reais da app de exemplo deste repositório, captados pelo CI num simulado
 No Xcode: **File > Add Package Dependencies**, cola `https://github.com/oryksa/oryksa-swift` e escolhe a versão `1.0.0`. Ou no `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.0.0")
+.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.2")
 ```
 
 CocoaPods:
 
 ```ruby
-pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.0.0'
+pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.2'
 ```
 
 ## Para que serve
