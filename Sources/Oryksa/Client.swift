@@ -252,20 +252,35 @@ public final class OryksaClient {
     /// - voice: the reply will be heard; it also carries a short `speech`.
     /// - whisper: the customer whispered; the spoken reply is shorter and whispered.
     /// - voiceStats: audio numbers of this voice turn (sent by the voice screen).
+    /// - image: a photo from the customer, the AI looks at it (up to 2 MB).
+    /// - file: a document from the customer (PDF, Word, text, CSV), the AI reads it (up to 8 MB).
     public func send(_ message: String, appContext: OryksaAppContext? = nil, voice: Bool = false,
-                     whisper: Bool = false, voiceStats: [String: Any]? = nil) async throws -> OryksaReply {
+                     whisper: Bool = false, voiceStats: [String: Any]? = nil,
+                     image: OryksaImage? = nil, file: OryksaFile? = nil) async throws -> OryksaReply {
+        let body = OryksaClient.chatBody(message, appContext: appContext, voice: voice, whisper: whisper,
+                                         voiceStats: voiceStats, image: image, file: file)
+        return try JSONDecoder().decode(OryksaReply.self, from: try await request("POST", "client/chat", body))
+    }
+
+    /// The JSON of `POST /v1/client/chat`.
+    static func chatBody(_ message: String, appContext: OryksaAppContext? = nil, voice: Bool = false, whisper: Bool = false,
+                         voiceStats: [String: Any]? = nil, image: OryksaImage? = nil, file: OryksaFile? = nil) -> [String: Any] {
         var body: [String: Any] = ["message": message]
         if let ctx = appContext { body["app_context"] = ctx.json }
         if voice { body["voice"] = true }
         if whisper { body["whisper"] = true }
         if let st = voiceStats { body["platform"] = "ios"; body["voice_stats"] = st }
-        return try JSONDecoder().decode(OryksaReply.self, from: try await request("POST", "client/chat", body))
+        if let img = image { body["image_base64"] = img.data.base64EncodedString(); body["image_mime"] = img.mime }
+        if let f = file { body["file_base64"] = f.data.base64EncodedString(); body["file_name"] = f.name; body["file_mime"] = f.mime }
+        return body
     }
 
     /// Like `sendAndWait`, but returns the whole reply (with `speech` when `voice` is on).
     public func sendAndWaitReply(_ message: String, maxWait: TimeInterval = 40, appContext: OryksaAppContext? = nil,
-                                 voice: Bool = false, whisper: Bool = false, voiceStats: [String: Any]? = nil) async throws -> OryksaReply {
-        let r = try await send(message, appContext: appContext, voice: voice, whisper: whisper, voiceStats: voiceStats)
+                                 voice: Bool = false, whisper: Bool = false, voiceStats: [String: Any]? = nil,
+                                 image: OryksaImage? = nil, file: OryksaFile? = nil) async throws -> OryksaReply {
+        let r = try await send(message, appContext: appContext, voice: voice, whisper: whisper, voiceStats: voiceStats,
+                               image: image, file: file)
         if r.status != "pending" { return r }
         let end = Date().addingTimeInterval(maxWait)
         while Date() < end {
@@ -305,7 +320,9 @@ public final class OryksaClient {
     }
 
     /// Sends a message and waits for the reply text.
-    public func sendAndWait(_ message: String, maxWait: TimeInterval = 40, appContext: OryksaAppContext? = nil) async throws -> String? {
-        try await sendAndWaitReply(message, maxWait: maxWait, appContext: appContext).reply
+    /// - image / file: a photo or a document from the customer (see `send`).
+    public func sendAndWait(_ message: String, maxWait: TimeInterval = 40, appContext: OryksaAppContext? = nil,
+                            image: OryksaImage? = nil, file: OryksaFile? = nil) async throws -> String? {
+        try await sendAndWaitReply(message, maxWait: maxWait, appContext: appContext, image: image, file: file).reply
     }
 }

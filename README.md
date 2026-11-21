@@ -63,6 +63,26 @@ OryksaChatButton(client: client, lang: "en", onLink: { url in
 
 `onLink` is also on `OryksaChatView`, `OryksaChatViewController`, `OryksaVoiceView` and `OryksaVoiceSheet`. On iOS 15 a tap on a link inside the text opens the browser; the Open button goes to `onLink` on every version.
 
+## Attach a photo or a document (1.1.3)
+
+The chat has an attach button (a paperclip, on by default, iOS): a photo from the library, a photo from the camera, or a document (PDF, Word, text, CSV, up to 8 MB). The AI looks at the photo (made smaller to 1600 pixels, JPEG, up to 2 MB) and reads the document; the customer's bubble shows the photo, or the document icon and its name. `attachments: false` hides the button.
+
+Permissions in Info.plist:
+
+* `NSCameraUsageDescription` for the camera. The Camera option only shows when this key is there, so the app never closes for lack of it.
+* `NSPhotoLibraryUsageDescription` is not needed by the SDK: the photo library opens in the system picker (PHPicker), which asks for no permission. Add it only if your app reads the library itself.
+* Documents open in the system document picker and need nothing.
+
+```xml
+<key>NSCameraUsageDescription</key><string>To send a photo to our assistant.</string>
+```
+
+```swift
+OryksaChatButton(client: client, lang: "en", attachments: false) // no attach button
+// Without the UI:
+try await client.send("Here is the quote", file: OryksaFile(data: pdf, name: "quote.pdf", mime: "application/pdf"))
+```
+
 ## How it works (and why the key stays safe)
 
 1. Your **server** keeps the secret API key (`oryk_live_...`, created at developer.oryksa.com) and creates a short-lived **session token** for each signed-in user with `POST /v1/sessions`.

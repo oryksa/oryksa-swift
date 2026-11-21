@@ -18,12 +18,28 @@ final class StubURLProtocol: URLProtocol {
     static var status = 200
     static var body = Data()
     static var seen: [URLRequest] = []
+    /// The bodies of the requests (URLSession hands them over as a stream).
+    static var bodies: [Data] = []
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
         StubURLProtocol.seen.append(request)
+        if let b = request.httpBody {
+            StubURLProtocol.bodies.append(b)
+        } else if let s = request.httpBodyStream {
+            var d = Data()
+            s.open()
+            var buf = [UInt8](repeating: 0, count: 65536)
+            while s.hasBytesAvailable {
+                let n = s.read(&buf, maxLength: buf.count)
+                if n <= 0 { break }
+                d.append(buf, count: n)
+            }
+            s.close()
+            StubURLProtocol.bodies.append(d)
+        }
         let r = HTTPURLResponse(url: request.url!, statusCode: StubURLProtocol.status, httpVersion: "HTTP/1.1",
                                 headerFields: ["Content-Type": "application/json; charset=utf-8"])!
         client?.urlProtocol(self, didReceive: r, cacheStoragePolicy: .notAllowed)

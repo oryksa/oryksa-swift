@@ -22,10 +22,10 @@ public struct OryksaChatTheme {
 }
 
 let oryksaTexts: [String: [String: String]] = [
-    "en": ["talk": "Talk to", "ph": "Type your question", "send": "Send", "err": "Sorry, something went wrong. Try again.", "voice": "Talk by voice", "copy": "Copy", "open": "Open"],
-    "pt": ["talk": "Falar com", "ph": "Escreve a tua pergunta", "send": "Enviar", "err": "Desculpa, algo correu mal. Tenta de novo.", "voice": "Falar por voz", "copy": "Copiar", "open": "Abrir"],
-    "br": ["talk": "Falar com", "ph": "Digite sua pergunta", "send": "Enviar", "err": "Desculpe, algo deu errado. Tente de novo.", "voice": "Falar por voz", "copy": "Copiar", "open": "Abrir"],
-    "es": ["talk": "Hablar con", "ph": "Escribe tu pregunta", "send": "Enviar", "err": "Lo siento, algo salió mal. Inténtalo de nuevo.", "voice": "Hablar por voz", "copy": "Copiar", "open": "Abrir"],
+    "en": ["talk": "Talk to", "ph": "Type your question", "send": "Send", "err": "Sorry, something went wrong. Try again.", "voice": "Talk by voice", "copy": "Copy", "open": "Open", "attach": "Attach", "gallery": "Photo library", "camera": "Camera", "document": "Document", "big": "The file is too large (max 8 MB).", "attachErr": "Could not attach the file."],
+    "pt": ["talk": "Falar com", "ph": "Escreve a tua pergunta", "send": "Enviar", "err": "Desculpa, algo correu mal. Tenta de novo.", "voice": "Falar por voz", "copy": "Copiar", "open": "Abrir", "attach": "Anexar", "gallery": "Foto da galeria", "camera": "Câmara", "document": "Documento", "big": "O ficheiro é demasiado grande (máx. 8 MB).", "attachErr": "Não foi possível anexar o ficheiro."],
+    "br": ["talk": "Falar com", "ph": "Digite sua pergunta", "send": "Enviar", "err": "Desculpe, algo deu errado. Tente de novo.", "voice": "Falar por voz", "copy": "Copiar", "open": "Abrir", "attach": "Anexar", "gallery": "Foto da galeria", "camera": "Câmera", "document": "Documento", "big": "O arquivo é grande demais (máx. 8 MB).", "attachErr": "Não foi possível anexar o arquivo."],
+    "es": ["talk": "Hablar con", "ph": "Escribe tu pregunta", "send": "Enviar", "err": "Lo siento, algo salió mal. Inténtalo de nuevo.", "voice": "Hablar por voz", "copy": "Copiar", "open": "Abrir", "attach": "Adjuntar", "gallery": "Foto de la galería", "camera": "Cámara", "document": "Documento", "big": "El archivo es demasiado grande (máx. 8 MB).", "attachErr": "No se pudo adjuntar el archivo."],
 ]
 
 func oryksaLang(_ l: String) -> String { oryksaTexts[l] != nil ? l : "en" }
@@ -34,6 +34,10 @@ private struct ChatMsg: Identifiable, Equatable {
     let id = UUID()
     let role: String
     let text: String
+    /// A photo the customer sent (shown as a thumbnail in the bubble).
+    var image: Data? = nil
+    /// The name of a document the customer sent.
+    var fileName: String? = nil
 }
 
 @MainActor
@@ -78,14 +82,15 @@ final class OryksaChatModel: ObservableObject {
         }
     }
 
-    func send(_ text: String) async {
+    /// Sends what the customer typed, with a photo or a document when they attached one.
+    func send(_ text: String, image: OryksaImage? = nil, file: OryksaFile? = nil) async {
         let q = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !q.isEmpty, !busy else { return }
+        guard !q.isEmpty || image != nil || file != nil, !busy else { return }
         busy = true
         suggestions = []
-        msgs.append(ChatMsg(role: "user", text: q))
+        msgs.append(ChatMsg(role: "user", text: q, image: image?.data, fileName: file?.name))
         msgs.append(ChatMsg(role: "typing", text: "..."))
-        let reply = try? await client.sendAndWait(q, appContext: appContext?())
+        let reply = try? await client.sendAndWait(q, appContext: appContext?(), image: image, file: file)
         msgs.removeAll { $0.role == "typing" }
         msgs.append(ChatMsg(role: "assistant", text: (reply ?? nil) ?? (oryksaTexts[lang]?["err"] ?? "")))
         busy = false
@@ -103,36 +108,109 @@ func oryksaBold(_ text: String) -> Text {
     return out
 }
 
+/// The inside of a message bubble: the photo or the document the customer sent, then the text.
+private struct OryksaBubble: View {
+    let m: ChatMsg
+    let shown: String
+    let theme: OryksaChatTheme
+    let onLink: OryksaLinkHandler?
+
+    var body: some View {
+        let mine = m.role == "user"
+        VStack(alignment: .leading, spacing: 8) {
+            if let data = m.image, let img = oryksaThumb(data) {
+                img.resizable().scaledToFill().frame(width: 200, height: 160).clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            }
+            if let name = m.fileName {
+                HStack(spacing: 6) {
+                    Image(systemName: "doc.text").font(.system(size: 18)).foregroundColor(mine ? .white : theme.accent)
+                    Text(name).font(.system(size: 13, weight: .semibold)).foregroundColor(mine ? .white : theme.ink).lineLimit(2)
+                }
+            }
+            if !m.text.isEmpty {
+                Text(oryksaRichText(shown, linkColor: mine ? .white : theme.accent))
+                    .font(.system(size: 14)).lineSpacing(3)
+                    .foregroundColor(mine ? .white : theme.ink)
+                    .tint(mine ? .white : theme.accent)
+                    .modifier(OryksaLinkRouting(onLink: onLink))
+            }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(mine ? theme.accent : theme.soft)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .opacity(m.role == "typing" ? 0.6 : 1)
+        .textSelection(.enabled)
+    }
+}
+
+/// A picture from its bytes, for the bubble.
+func oryksaThumb(_ data: Data) -> Image? {
+    #if canImport(UIKit)
+    return UIImage(data: data).map { Image(uiImage: $0) }
+    #elseif canImport(AppKit)
+    return NSImage(data: data).map { Image(nsImage: $0) }
+    #else
+    return nil
+    #endif
+}
+
 /// The ORYKSA chat panel: header with the photo and name of the AI, messages, suggestions, input
 /// and (on iOS, when the plan has voice) the microphone that opens the voice conversation.
 public struct OryksaChatView: View {
     @StateObject private var model: OryksaChatModel
     @State private var text = ""
     @State private var voiceOpen = false
+    @State private var note: String?
     private let theme: OryksaChatTheme
     private let onClose: (() -> Void)?
     private let voice: Bool
+    private let attachments: Bool
     private let onLink: OryksaLinkHandler?
 
     /// - appContext: where the customer is in your app right now (sent with each message).
     /// - voice: shows the microphone when the plan has voice (needs NSMicrophoneUsageDescription).
+    /// - attachments: shows the attach button on iOS (photo library, camera, document); the camera needs
+    ///   NSCameraUsageDescription in Info.plist and only shows when it is there.
     public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme(),
-                appContext: (() -> OryksaAppContext?)? = nil, voice: Bool = true, onClose: (() -> Void)? = nil) {
-        self.init(client: client, lang: lang, theme: theme, appContext: appContext, voice: voice, onLink: nil, onClose: onClose)
+                appContext: (() -> OryksaAppContext?)? = nil, voice: Bool = true, attachments: Bool = true,
+                onClose: (() -> Void)? = nil) {
+        self.init(client: client, lang: lang, theme: theme, appContext: appContext, voice: voice, attachments: attachments,
+                  onLink: nil, onClose: onClose)
     }
 
     /// The same chat with `onLink`: what your app does with a link the AI gave (see
     /// `OryksaLinkHandler`). Nil: the browser or the app that owns the address opens it.
     /// (A separate init, so `OryksaChatView(client: client) { close() }` keeps closing the chat.)
     public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme(),
-                appContext: (() -> OryksaAppContext?)? = nil, voice: Bool = true, onLink: OryksaLinkHandler?,
-                onClose: (() -> Void)? = nil) {
+                appContext: (() -> OryksaAppContext?)? = nil, voice: Bool = true, attachments: Bool = true,
+                onLink: OryksaLinkHandler?, onClose: (() -> Void)? = nil) {
         _model = StateObject(wrappedValue: OryksaChatModel(client: client, lang: lang, appContext: appContext))
         self.theme = theme
         self.onClose = onClose
         self.voice = voice
+        self.attachments = attachments
         self.onLink = onLink
     }
+
+    /// A short line over the input (file too large, could not attach), for a few seconds.
+    private func show(_ n: String?) {
+        guard let n = n else { return }
+        note = n
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.5) { if note == n { note = nil } }
+    }
+
+    #if os(iOS)
+    private func attached(_ r: OryksaPicked) {
+        switch r {
+        case .cancelled: return
+        case .failed: show(tx["attachErr"])
+        case .picked(.tooBig): show(tx["big"])
+        case .picked(.image(let img)): let t = text; text = ""; Task { await model.send(t, image: img) }
+        case .picked(.file(let f)): let t = text; text = ""; Task { await model.send(t, file: f) }
+        }
+    }
+    #endif
 
     private var tx: [String: String] { oryksaTexts[model.lang] ?? oryksaTexts["en"]! }
 
@@ -162,17 +240,8 @@ public struct OryksaChatView: View {
                             VStack(alignment: .leading, spacing: 2) {
                             HStack {
                                 if mine { Spacer(minLength: 40) }
-                                Text(oryksaRichText(mine && model.profanityReady ? OryksaProfanity.mask(m.text, model.lang) : m.text,
-                                                    linkColor: mine ? .white : theme.accent))
-                                    .font(.system(size: 14)).lineSpacing(3)
-                                    .foregroundColor(mine ? .white : theme.ink)
-                                    .tint(mine ? .white : theme.accent)
-                                    .modifier(OryksaLinkRouting(onLink: onLink))
-                                    .padding(.horizontal, 14).padding(.vertical, 10)
-                                    .background(mine ? theme.accent : theme.soft)
-                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                    .opacity(m.role == "typing" ? 0.6 : 1)
-                                    .textSelection(.enabled)
+                                OryksaBubble(m: m, shown: mine && model.profanityReady ? OryksaProfanity.mask(m.text, model.lang) : m.text,
+                                             theme: theme, onLink: onLink)
                                 if !mine { Spacer(minLength: 40) }
                             }
                             // A card with an Open button for each link of the reply (owner 2026-11-21: the links
@@ -210,6 +279,12 @@ public struct OryksaChatView: View {
                     }.padding(.horizontal, 16)
                 }.padding(.bottom, 10)
             }
+            if let n = note {
+                Text(n).font(.system(size: 12.5)).foregroundColor(.white)
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(Capsule().fill(theme.ink.opacity(0.9)))
+                    .padding(.bottom, 8)
+            }
             Divider()
             HStack(spacing: 0) {
                 TextField(tx["ph"] ?? "", text: $text)
@@ -218,6 +293,9 @@ public struct OryksaChatView: View {
                     .submitLabel(.send)
                     .onSubmit { let t = text; text = ""; Task { await model.send(t) } }
                 #if os(iOS)
+                if attachments {
+                    OryksaAttachButton(tx: tx, color: theme.accent, disabled: model.busy) { attached($0) }
+                }
                 if voice && (model.agent?.voiceReplies ?? false) && text.isEmpty {
                     Button { voiceOpen = true } label: {
                         Image(systemName: "mic").font(.system(size: 18)).foregroundColor(theme.accent).padding(.horizontal, 12)
@@ -254,6 +332,39 @@ public struct OryksaChatView: View {
     }
 }
 
+#if os(iOS)
+/// The paperclip in the input: a menu with the photo library, the camera (when the app can use it)
+/// and documents.
+struct OryksaAttachButton: View {
+    let tx: [String: String]
+    let color: Color
+    let disabled: Bool
+    let onPicked: (OryksaPicked) -> Void
+    @State private var menu = false
+    @State private var sheet: OryksaAttachSource?
+    @State private var camera = false
+
+    var body: some View {
+        Button { menu = true } label: {
+            Image(systemName: "paperclip").font(.system(size: 18)).foregroundColor(color).padding(.horizontal, 10)
+        }
+        .accessibilityLabel(tx["attach"] ?? "Attach")
+        .disabled(disabled)
+        .confirmationDialog(tx["attach"] ?? "Attach", isPresented: $menu, titleVisibility: .hidden) {
+            Button(tx["gallery"] ?? "Photo library") { sheet = .gallery }
+            if oryksaCameraAvailable { Button(tx["camera"] ?? "Camera") { camera = true } }
+            Button(tx["document"] ?? "Document") { sheet = .document }
+        }
+        .sheet(item: $sheet) { s in
+            OryksaAttachPicker(source: s) { r in sheet = nil; onPicked(r) }.ignoresSafeArea()
+        }
+        .fullScreenCover(isPresented: $camera) {
+            OryksaAttachPicker(source: .camera) { r in camera = false; onPicked(r) }.ignoresSafeArea()
+        }
+    }
+}
+#endif
+
 struct OryksaAvatar: View {
     let url: String?
     let size: CGFloat
@@ -272,19 +383,23 @@ public struct OryksaChatButton: View {
     private let theme: OryksaChatTheme
     private let appContext: (() -> OryksaAppContext?)?
     private let voice: Bool
+    private let attachments: Bool
     private let onLink: OryksaLinkHandler?
     @State private var agent: OryksaAgent?
     @State private var open = false
 
+    /// - attachments: shows the attach button in the chat (photo library, camera, document).
     /// - onLink: what your app does with a link the AI gave (see `OryksaLinkHandler`), for
     ///   example your own product screen for the links of your site.
     public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme(),
-                appContext: (() -> OryksaAppContext?)? = nil, voice: Bool = true, onLink: OryksaLinkHandler? = nil) {
+                appContext: (() -> OryksaAppContext?)? = nil, voice: Bool = true, attachments: Bool = true,
+                onLink: OryksaLinkHandler? = nil) {
         self.client = client
         self.lang = oryksaLang(lang)
         self.theme = theme
         self.appContext = appContext
         self.voice = voice
+        self.attachments = attachments
         self.onLink = onLink
     }
 
@@ -302,7 +417,8 @@ public struct OryksaChatButton: View {
         .buttonStyle(.plain)
         .task { if agent == nil { agent = try? await client.agent() } }
         .sheet(isPresented: $open) {
-            OryksaChatView(client: client, lang: lang, theme: theme, appContext: appContext, voice: voice, onLink: onLink) { open = false }
+            OryksaChatView(client: client, lang: lang, theme: theme, appContext: appContext, voice: voice, attachments: attachments,
+                           onLink: onLink) { open = false }
         }
     }
 }
@@ -312,11 +428,13 @@ import UIKit
 
 /// The chat for UIKit apps: present it with `present(OryksaChatViewController(client: client), animated: true)`.
 public final class OryksaChatViewController: UIHostingController<AnyView> {
+    /// - attachments: shows the attach button (photo library, camera, document).
     /// - onLink: what your app does with a link the AI gave (see `OryksaLinkHandler`).
     public init(client: OryksaClient, lang: String = "en", theme: OryksaChatTheme = OryksaChatTheme(),
-                appContext: (() -> OryksaAppContext?)? = nil, onLink: OryksaLinkHandler? = nil) {
+                appContext: (() -> OryksaAppContext?)? = nil, attachments: Bool = true, onLink: OryksaLinkHandler? = nil) {
         super.init(rootView: AnyView(EmptyView()))
-        rootView = AnyView(OryksaChatView(client: client, lang: lang, theme: theme, appContext: appContext, onLink: onLink) { [weak self] in
+        rootView = AnyView(OryksaChatView(client: client, lang: lang, theme: theme, appContext: appContext, attachments: attachments,
+                                          onLink: onLink) { [weak self] in
             self?.dismiss(animated: true)
         })
     }

@@ -63,6 +63,26 @@ OryksaChatButton(client: client, lang: "es", onLink: { url in
 
 `onLink` también está en `OryksaChatView`, `OryksaChatViewController`, `OryksaVoiceView` y `OryksaVoiceSheet`. En iOS 15, tocar un enlace dentro del texto abre el navegador; el botón Abrir pasa por `onLink` en todas las versiones.
 
+## Adjuntar una foto o un documento (1.1.3)
+
+El chat tiene un botón de adjuntar (un clip, activado por defecto, iOS): una foto de la galería, una foto de la cámara o un documento (PDF, Word, texto, CSV, hasta 8 MB). La IA mira la foto (reducida a 1600 píxeles, JPEG, hasta 2 MB) y lee el documento; la burbuja del cliente muestra la foto, o el icono del documento y su nombre. `attachments: false` oculta el botón.
+
+Permisos en Info.plist:
+
+* `NSCameraUsageDescription` para la cámara. La opción Cámara solo aparece cuando existe esta clave, así la app nunca se cierra por no tenerla.
+* `NSPhotoLibraryUsageDescription` no la necesita el SDK: la galería se abre en el selector del sistema (PHPicker), que no pide permiso. Añádela solo si tu app lee la galería por su cuenta.
+* Los documentos se abren en el selector de documentos del sistema y no necesitan nada.
+
+```xml
+<key>NSCameraUsageDescription</key><string>Para enviar una foto a nuestro asistente.</string>
+```
+
+```swift
+OryksaChatButton(client: client, lang: "es", attachments: false) // sin botón de adjuntar
+// Sin la interfaz:
+try await client.send("Aquí está el presupuesto", file: OryksaFile(data: pdf, name: "presupuesto.pdf", mime: "application/pdf"))
+```
+
 ## Cómo funciona (y por qué la clave está segura)
 
 1. Tu **servidor** guarda la clave secreta de la API (`oryk_live_...`, creada en developer.oryksa.com) y crea un **token de sesión** de corta duración para cada usuario que ha iniciado sesión, con `POST /v1/sessions`.
