@@ -20,16 +20,16 @@ Real screens of the example app in this repository, taken by CI on a simulator w
 
 ## Install (Swift Package Manager)
 
-In Xcode: **File > Add Package Dependencies**, paste `https://github.com/oryksa/oryksa-swift` and pick version `1.1.3`. Or in `Package.swift`:
+In Xcode: **File > Add Package Dependencies**, paste `https://github.com/oryksa/oryksa-swift` and pick version `1.1.4`. Or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.3")
+.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.4")
 ```
 
 CocoaPods:
 
 ```ruby
-pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.3'
+pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.4'
 ```
 
 ## What it is for
@@ -82,6 +82,22 @@ OryksaChatButton(client: client, lang: "en", attachments: false) // no attach bu
 // Without the UI:
 try await client.send("Here is the quote", file: OryksaFile(data: pdf, name: "quote.pdf", mime: "application/pdf"))
 ```
+
+## Your own AI features: `ai` (1.1.4)
+
+Have the AI do what your app needs (read a photo, extract data, classify, translate, write) and pay with ORYKSA interactions: 1 per answer. Your prompt and your JSON Schema live in your app; the session token is enough (never ship the secret key). It does not create a conversation in your inbox.
+
+```swift
+let r = try await client.ai(
+    instructions: "Read the tyre on the photo: brand, model and size exactly as written on the sidewall. If the size is not legible, readable=false and size=null. Never invent.",
+    images: [OryksaImage(data: jpeg)], // resized to 1600 px
+    schema: ["type": "object",
+             "properties": ["readable": ["type": "boolean"], "brand": ["type": ["string", "null"]], "size": ["type": ["string", "null"]]],
+             "required": ["readable", "brand", "size"]])
+if r.json?["readable"] as? Bool == true, let size = r.json?["size"] as? String { showProducts(for: size) }
+```
+
+`r.text` has the answer as text, `r.json` the object (with a schema), `r.interactionsSpent` the interactions used. When the plan's interactions are used up the call throws `OryksaError` with status 402.
 
 ## How it works (and why the key stays safe)
 

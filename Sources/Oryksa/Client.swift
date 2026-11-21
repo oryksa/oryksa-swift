@@ -247,6 +247,49 @@ public final class OryksaClient {
         return p
     }
 
+    /// An AI task of your own app, counted as ORYKSA interactions (1 per answer): read a photo,
+    /// extract data, classify, translate, write. It never creates a conversation in the business's
+    /// inbox and never acts on the account. Your prompt and your JSON Schema live in your app.
+    /// - instructions: what the AI must do.
+    /// - input: the text to work on.
+    /// - images: up to 4 photos (JPEG/PNG/WebP, about 1.5 MB each; resize to 1600 px).
+    /// - schema: a JSON Schema; the answer comes back in `json`.
+    public func ai(instructions: String? = nil, input: String? = nil, images: [OryksaImage] = [],
+                   schema: [String: Any]? = nil, maxTokens: Int? = nil, temperature: Double? = nil) async throws -> OryksaAiResult {
+        let body = try OryksaClient.aiBody(instructions: instructions, input: input, images: images, schema: schema,
+                                           maxTokens: maxTokens, temperature: temperature)
+        return try OryksaClient.aiResult(try await request("POST", "client/ai", body))
+    }
+
+    /// The JSON of `POST /v1/client/ai`.
+    static func aiBody(instructions: String? = nil, input: String? = nil, images: [OryksaImage] = [],
+                       schema: [String: Any]? = nil, maxTokens: Int? = nil, temperature: Double? = nil) throws -> [String: Any] {
+        if (instructions ?? "").isEmpty && (input ?? "").isEmpty && images.isEmpty {
+            throw OryksaError(status: 400, code: "invalid_request", message: "ai() needs instructions, input or an image.")
+        }
+        if images.count > 4 {
+            throw OryksaError(status: 400, code: "invalid_request", message: "ai() takes at most 4 images.")
+        }
+        var body: [String: Any] = ["platform": "ios"]
+        if let i = instructions, !i.isEmpty { body["instructions"] = i }
+        if let t = input, !t.isEmpty { body["input"] = t }
+        if !images.isEmpty { body["images"] = images.map { ["base64": $0.data.base64EncodedString(), "mime": $0.mime] } }
+        if let s = schema { body["schema"] = s }
+        if let m = maxTokens { body["max_tokens"] = m }
+        if let t = temperature { body["temperature"] = t }
+        return body
+    }
+
+    /// Reads an `ai_result` answer.
+    static func aiResult(_ data: Data) throws -> OryksaAiResult {
+        let obj = (try JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        let use = obj["oryksa"] as? [String: Any] ?? [:]
+        return OryksaAiResult(text: (obj["text"] as? String) ?? "",
+                              json: obj["json"] as? [String: Any],
+                              interactionsSpent: (use["interactions_spent"] as? NSNumber)?.intValue ?? 0,
+                              interactionsRemaining: (use["interactions_remaining"] as? NSNumber)?.intValue)
+    }
+
     /// Sends a message. The status is `pending` when the AI needs a few more seconds.
     /// - appContext: the screen the customer is on inside your app, so the AI answers about it.
     /// - voice: the reply will be heard; it also carries a short `speech`.

@@ -20,16 +20,16 @@ SDK Swift officiel d'**ORYKSA AI Employees**. Mettez dans votre app iOS ou macOS
 
 ## Installer (Swift Package Manager)
 
-Dans Xcode : **File > Add Package Dependencies**, collez `https://github.com/oryksa/oryksa-swift` et choisissez la version `1.1.3`. Ou dans `Package.swift` :
+Dans Xcode : **File > Add Package Dependencies**, collez `https://github.com/oryksa/oryksa-swift` et choisissez la version `1.1.4`. Ou dans `Package.swift` :
 
 ```swift
-.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.3")
+.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.4")
 ```
 
 CocoaPods :
 
 ```ruby
-pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.3'
+pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.4'
 ```
 
 ## À quoi il sert
@@ -82,6 +82,22 @@ OryksaChatButton(client: client, lang: "en", attachments: false) // sans bouton 
 // Sans l'interface :
 try await client.send("Voici le devis", file: OryksaFile(data: pdf, name: "devis.pdf", mime: "application/pdf"))
 ```
+
+## Vos propres fonctions d'IA : `ai` (1.1.4)
+
+Faites faire à l'IA ce dont votre app a besoin (lire une photo, extraire des données, classer, traduire, rédiger) et payez en interactions ORYKSA : 1 par réponse. Votre prompt et votre JSON Schema restent dans votre app ; le jeton de session suffit (n'embarquez jamais la clé secrète). Aucune conversation n'est créée dans votre boîte.
+
+```swift
+let r = try await client.ai(
+    instructions: "Read the tyre on the photo: brand, model and size exactly as written on the sidewall. If the size is not legible, readable=false and size=null. Never invent.",
+    images: [OryksaImage(data: jpeg)], // resized to 1600 px
+    schema: ["type": "object",
+             "properties": ["readable": ["type": "boolean"], "brand": ["type": ["string", "null"]], "size": ["type": ["string", "null"]]],
+             "required": ["readable", "brand", "size"]])
+if r.json?["readable"] as? Bool == true, let size = r.json?["size"] as? String { showProducts(for: size) }
+```
+
+`r.text` contient la réponse en texte, `r.json` l'objet (avec un schema) et `r.interactionsSpent` les interactions utilisées. Quand les interactions du forfait sont épuisées, l'appel lève une `OryksaError` avec le status 402.
 
 ## Comment ça marche (et pourquoi la clé reste en sécurité)
 

@@ -26,6 +26,21 @@ public struct OryksaFile: Equatable {
     }
 }
 
+/// The answer of `OryksaClient.ai(...)`: an AI task of your own app, counted as ORYKSA interactions.
+public struct OryksaAiResult {
+    /// The AI's answer as text (with a schema, the JSON text).
+    public let text: String
+    /// The answer as an object, when you passed a JSON Schema and the answer follows it.
+    public let json: [String: Any]?
+    /// ORYKSA interactions this answer used (1 per answer).
+    public let interactionsSpent: Int
+    /// ORYKSA interactions left in this period, when known.
+    public let interactionsRemaining: Int?
+    public init(text: String, json: [String: Any]? = nil, interactionsSpent: Int = 0, interactionsRemaining: Int? = nil) {
+        self.text = text; self.json = json; self.interactionsSpent = interactionsSpent; self.interactionsRemaining = interactionsRemaining
+    }
+}
+
 /// The largest photo the chat sends (after it is made smaller): 2 MB.
 public let oryksaMaxPhotoBytes = 2 * 1024 * 1024
 /// The largest document the chat sends: 8 MB.
