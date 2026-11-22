@@ -20,16 +20,16 @@ Ecrãs reais da app de exemplo deste repositório, captados pelo CI num simulado
 
 ## Instalar (Swift Package Manager)
 
-No Xcode: **File > Add Package Dependencies**, cola `https://github.com/oryksa/oryksa-swift` e escolhe a versão `1.1.4`. Ou no `Package.swift`:
+No Xcode: **File > Add Package Dependencies**, cola `https://github.com/oryksa/oryksa-swift` e escolhe a versão `1.1.5`. Ou no `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.4")
+.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.5")
 ```
 
 CocoaPods:
 
 ```ruby
-pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.4'
+pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.5'
 ```
 
 ## Para que serve

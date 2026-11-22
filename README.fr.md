@@ -20,16 +20,16 @@ SDK Swift officiel d'**ORYKSA AI Employees**. Mettez dans votre app iOS ou macOS
 
 ## Installer (Swift Package Manager)
 
-Dans Xcode : **File > Add Package Dependencies**, collez `https://github.com/oryksa/oryksa-swift` et choisissez la version `1.1.4`. Ou dans `Package.swift` :
+Dans Xcode : **File > Add Package Dependencies**, collez `https://github.com/oryksa/oryksa-swift` et choisissez la version `1.1.5`. Ou dans `Package.swift` :
 
 ```swift
-.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.4")
+.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.5")
 ```
 
 CocoaPods :
 
 ```ruby
-pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.4'
+pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.5'
 ```
 
 ## À quoi il sert

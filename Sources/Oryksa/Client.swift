@@ -2,7 +2,7 @@
 import Foundation
 
 /// SDK version sent in the `X-ORYKSA-SDK` header.
-public let oryksaSDKVersion = "1.1.3"
+public let oryksaSDKVersion = "1.1.5"
 
 /// Error returned by the ORYKSA API. `code` is stable, for example
 /// `interaction_limit_reached`, `rate_limited`, `plan_required` or `session_expired`.

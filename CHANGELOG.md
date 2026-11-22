@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.5
+
+* The `X-ORYKSA-SDK` header now reports the real package version (1.1.4 still sent "1.1.3"). No API change.
+
 ## 1.1.4
 
 * **The AI doing what you want in your app: `client.ai(...)`.** An AI task of your own feature, from the app, with the
