@@ -1,5 +1,45 @@
 # Changelog
 
+## 1.2.0 (Unreleased, TV)
+
+* **ORYKSA for Apple TV apps: the `OryksaTV` product** (tvOS 15 or later), in the same package. Only what the AI
+  does for every TV app, driven only by the Siri Remote (arrows, OK, Back), in native SwiftUI with the tvOS focus
+  engine (no web view). Phone apps do not carry it: it is a separate product.
+  * `OryksaTv(client:locale:)`: the TV pieces, `ObservableObject`s for SwiftUI.
+  * `OryksaPresenter` + `.oryksaTvPresenter(tv)` / `OryksaPresenterView`: the AI speaks with the server's voice for
+    the locale (never in the code) and big subtitles, with her photo and name from the server. Every line is
+    charged by the ORYKSA interaction cost table each time she says it or shows it (per piece of up to 600
+    characters), a repeated line too: a spoken line at the voice price, a subtitles-only line at the text price.
+    The exact number comes in the `X-ORYKSA-Interactions-Spent` header, and the line appears only once the server
+    has counted it; a line not counted (no interactions left, no network) is not shown, `onError` gets the error
+    (code `not_counted` when the header is missing) and she stops there. Lines already said are kept in the app's
+    Caches folder and sent with `cached: true` and their `voice_rev`, so the server can charge them without making
+    the voice again. With no voice for the locale she shows the subtitles only, never a robot voice. OK,
+    Play/Pause and Back on the remote stop her and are not passed to the app. `say(text, voice: false)` shows the
+    subtitles only, at reading speed, with no sound. `sayGenerated(instructions:input:)` has the AI write the line.
+    Server route: `POST /v1/client/tts` with `locale` and `purpose: "presenter"`.
+  * `OryksaTvAssistant` + `.oryksaTvAssistant(isPresented:tv:)`: a conversation with the AI for the remote, full
+    screen or as a side panel. Questions, buttons, texts and rules come from `GET /v1/client/agent?locale=`
+    (block `tv`). Typing uses the system keyboard, and only the Send button sends.
+  * `OryksaPhoneVoice` + `OryksaPairingCard`: the phone as the microphone (QR image from the server and code;
+    `POST /v1/client/tv/pair`, long-poll of `.../events`, `DELETE`). Apple TV gives no microphone to apps:
+    `OryksaTvMic.isAvailable()` is false there.
+  * `OryksaTvFakeBackend`: a simulated backend for tests and demos (it proves nothing about the server).
+  * `ExampleTV/`: a tvOS demo app (XcodeGen) with a UI test driven by `XCUIRemote`.
+* **`OryksaClient(platform:)`**: the device sent as `platform` (`ios` by default, `tvos` on Apple TV), now in every
+  chat request, as in the Flutter and Android SDKs. `send` / `sendAndWait` / `sendAndWaitReply` take `lang`. New
+  `OryksaClient.public(chatToken:...)` (a public session from the public chat token, with `platform` and
+  `app_id`), `OryksaTv.publicClient(chatToken:conversationId:)`, `requestJSON` / `requestAudio` (low level, used by
+  `OryksaTV`), `timeout`, and a public `OryksaError` initializer.
+* **tvOS in the package** (`.tvOS(.v15)`). The `Oryksa` target builds for tvOS too: the text selection of the chat
+  bubbles is left out on tvOS, which has none; the voice screen and the attachments stay iOS only.
+* Doc comments: no voice provider named (the ORYKSA voice).
+* Tests: `OryksaTVTests` (the charging contract on a simulated HTTP server, the configuration, the pairing and its
+  events, the phone voice). A live test against the real server (`TVLiveTests`) runs only with `ORYKSA_LIVE=1`
+  and the token of a test account from the environment (`ORYKSA_TV_TOKEN` or `ORYKSA_TV_TOKEN_FILE`); without it,
+  it is skipped and the tests never call the server. How to run everything on the tvOS Simulator:
+  `TVOS-SIMULADOR.md`. Not compiled nor run yet at the time of writing (written on a machine without Xcode).
+
 ## 1.1.5
 
 * The `X-ORYKSA-SDK` header now reports the real package version (1.1.4 still sent "1.1.3"). No API change.

@@ -140,7 +140,18 @@ private struct OryksaBubble: View {
         .background(mine ? theme.accent : theme.soft)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .opacity(m.role == "typing" ? 0.6 : 1)
-        .textSelection(.enabled)
+        .modifier(OryksaSelectableText())
+    }
+}
+
+/// The text of a bubble can be selected (iOS and macOS; tvOS has no text selection).
+struct OryksaSelectableText: ViewModifier {
+    func body(content: Content) -> some View {
+        #if os(tvOS)
+        return content
+        #else
+        return content.textSelection(.enabled)
+        #endif
     }
 }
 

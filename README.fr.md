@@ -10,7 +10,7 @@ SDK Swift officiel d'**ORYKSA AI Employees**. Mettez dans votre app iOS ou macOS
 
 * Documentation : https://developer.oryksa.com/fr/sdks
 * API : `https://api.oryksa.com/v1`
-* iOS 15+, macOS 12+, sans dépendances.
+* iOS 15+, macOS 12+, tvOS 15+ (le produit `OryksaTV`), sans dépendances.
 
 ## Captures d'écran
 
@@ -20,16 +20,16 @@ SDK Swift officiel d'**ORYKSA AI Employees**. Mettez dans votre app iOS ou macOS
 
 ## Installer (Swift Package Manager)
 
-Dans Xcode : **File > Add Package Dependencies**, collez `https://github.com/oryksa/oryksa-swift` et choisissez la version `1.1.5`. Ou dans `Package.swift` :
+Dans Xcode : **File > Add Package Dependencies**, collez `https://github.com/oryksa/oryksa-swift` et choisissez la version `1.2.0`. Ou dans `Package.swift` :
 
 ```swift
-.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.5")
+.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.2.0")
 ```
 
 CocoaPods :
 
 ```ruby
-pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.5'
+pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.2.0'
 ```
 
 ## À quoi il sert
@@ -98,6 +98,53 @@ if r.json?["readable"] as? Bool == true, let size = r.json?["size"] as? String {
 ```
 
 `r.text` contient la réponse en texte, `r.json` l'objet (avec un schema) et `r.interactionsSpent` les interactions utilisées. Quand les interactions du forfait sont épuisées, l'appel lève une `OryksaError` avec le status 402.
+
+## Apps Apple TV : `OryksaTV` (1.2)
+
+Ce que l'IA fait dans n'importe quelle app Apple TV, uniquement avec la télécommande Siri Remote (flèches, OK et Retour), avec de gros caractères et un focus visible depuis le canapé. C'est du SwiftUI natif avec le moteur de focus de tvOS, sans web view. Les textes, les voix, les règles et les boutons viennent de votre compte ORYKSA. C'est un produit à part, donc les apps de téléphone ne l'embarquent pas (tvOS 15+).
+
+* **Présentatrice** : l'IA parle à l'écran avec une voix native dans la langue du spectateur, avec de grands sous-titres, sa photo et son nom issus de votre compte. Les phrases déjà dites sont rejouées depuis l'appareil, sans nouvelle voix, et sont facturées à nouveau chaque fois qu'elle les dit.
+* **Panneau d'assistant** : une conversation avec l'IA pensée pour la télécommande, en plein écran ou en panneau latéral.
+* **Voix par le téléphone** : l'Apple TV ne donne pas de micro aux apps. La TV affiche un QR code, le téléphone ouvre la page ORYKSA et ce que dit la personne arrive dans votre app sous forme de texte.
+* **`client.ai`** pour vos propres tâches, par exemple modérer ou classer.
+
+```swift
+// Package.swift : .product(name: "OryksaTV", package: "oryksa-swift")
+import OryksaTV
+
+@main
+struct MonAppTV: App {
+    // Sur Apple TV, le client envoie lui-même le platform "tvos".
+    @StateObject private var tv = OryksaTv(client: OryksaClient(getToken: { try await MonServeur.tokenOryksa() }),
+                                           locale: "fr-FR")
+    @State private var afficherAssistant = false
+
+    var body: some Scene {
+        WindowGroup {
+            VotreEcran(quandAideDemandee: { afficherAssistant = true })
+                .oryksaTvPresenter(tv) // sa photo, son nom et les sous-titres ; OK et Retour la font taire pendant qu'elle parle
+                .oryksaTvAssistant(isPresented: $afficherAssistant, tv: tv)
+                .task { await tv.presenter.say("Bienvenue ! Je suis votre présentatrice ce soir.") }
+        }
+    }
+}
+
+try await tv.presenter.sayGenerated(instructions: "Annonce la manche suivante en une phrase courte.", input: "Manche 2")
+// Sous-titres seuls, sans son (facturée au prix du texte ; une phrase avec voix est facturée au prix de la voix).
+await tv.presenter.say("Le thème de ce soir : les voyages.", voice: false)
+
+// Le téléphone comme micro : affichez OryksaPairingCard(tv: tv) et lisez ce qui est dit.
+tv.phoneVoice.onText = { texte in quandLeSpectateurADit(texte) }
+```
+
+* **Sans serveur à vous** : `OryksaTv.publicClient(chatToken:conversationId:)` ouvre une session publique avec le token public du chat de votre entreprise, et envoie `platform: tvos` et le bundle id de votre app comme `app_id`. Quand votre entreprise limite son chat, elle doit mettre votre bundle id dans la liste des apps autorisées. `app_id` est un filtre, pas une sécurité forte (il peut être imité) : la sécurité forte, c'est un token qui vient de votre propre serveur (`POST /v1/sessions`).
+* **Langues** : le serveur ORYKSA choisit la voix et les textes pour la locale. Il y a des voix natives pour pt-BR, pt-PT, es-ES, es-419, fr-FR, de-DE, en-US et en-GB, et les autres langues utilisent la voix anglaise des États-Unis.
+* **Interactions** : chaque phrase de la présentatrice est facturée selon la grille des coûts d'interaction ORYKSA chaque fois qu'elle la dit ou l'affiche (par morceau de 600 caractères au plus), la phrase répétée et la phrase en sous-titres seuls aussi : la phrase avec voix au prix de la voix, la phrase en sous-titres seuls au prix du texte. Le nombre exact arrive dans l'en-tête `X-ORYKSA-Interactions-Spent`, et une phrase que le serveur n'a pas comptée n'apparaît pas (`onError` la reçoit). Chaque texte entendu sur le téléphone, chaque réponse du chat et chaque réponse de `client.ai` sont aussi facturés.
+* **Télécommande** : OK, Lecture/Pause et Retour arrêtent la présentatrice pendant qu'elle parle et ne passent pas à votre app. Dans le panneau d'assistant, haut et bas parcourent les messages et les boutons, gauche et droite passent d'un bouton à l'autre, et Retour le ferme.
+* **Micro de la TV** : `OryksaTvMic.isAvailable()` est faux sur Apple TV ; le SDK n'y demande jamais le micro.
+* **Phrases gardées** : les voix déjà dites restent dans le dossier Caches de l'app (tvOS peut le vider ; la voix est alors refaite).
+
+Pour les tests et les démos, `OryksaTv(backend: OryksaTvFakeBackend())` fait tout tourner sans le serveur. C'est simulé, donc cela ne prouve rien sur votre compte ORYKSA. L'app de démo est dans `ExampleTV/` (comment la compiler, la lancer et la tester sur le simulateur Apple TV : `TVOS-SIMULADOR.md`, en portugais).
 
 ## Comment ça marche (et pourquoi la clé reste en sécurité)
 

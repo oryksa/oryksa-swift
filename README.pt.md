@@ -10,7 +10,7 @@ SDK oficial Swift da **ORYKSA AI Employees**. Põe dentro da tua app iOS ou macO
 
 * Documentação: https://developer.oryksa.com/pt/sdks
 * API: `https://api.oryksa.com/v1`
-* iOS 15+, macOS 12+, sem dependências.
+* iOS 15+, macOS 12+, tvOS 15+ (o produto `OryksaTV`), sem dependências.
 
 ## Capturas de ecrã
 
@@ -20,16 +20,16 @@ Ecrãs reais da app de exemplo deste repositório, captados pelo CI num simulado
 
 ## Instalar (Swift Package Manager)
 
-No Xcode: **File > Add Package Dependencies**, cola `https://github.com/oryksa/oryksa-swift` e escolhe a versão `1.1.5`. Ou no `Package.swift`:
+No Xcode: **File > Add Package Dependencies**, cola `https://github.com/oryksa/oryksa-swift` e escolhe a versão `1.2.0`. Ou no `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.5")
+.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.2.0")
 ```
 
 CocoaPods:
 
 ```ruby
-pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.5'
+pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.2.0'
 ```
 
 ## Para que serve
@@ -98,6 +98,53 @@ if r.json?["readable"] as? Bool == true, let size = r.json?["size"] as? String {
 ```
 
 `r.text` tem a resposta em texto, `r.json` o objeto (com schema) e `r.interactionsSpent` as interações gastas. Quando as interações do plano acabam, a chamada lança `OryksaError` com o status 402.
+
+## Apps de Apple TV: `OryksaTV` (1.2)
+
+O que a IA faz em qualquer app de Apple TV, só com o comando Siri Remote (setas, OK e Voltar), com letra grande e um foco que se vê do sofá. É SwiftUI nativo com o motor de foco do tvOS, sem web view. Os textos, as vozes, as regras e os botões vêm da tua conta ORYKSA. É um produto à parte, por isso as apps de telemóvel não o levam (tvOS 15+).
+
+* **Apresentadora**: a IA fala no ecrã com uma voz nativa na língua de quem está a ver, com legendas grandes e a foto e o nome dela vindos da tua conta. As falas que ela já disse voltam a tocar a partir do aparelho, sem gerar voz nova, e são cobradas outra vez sempre que ela as diz.
+* **Painel de assistente**: uma conversa com a IA feita para o comando, em ecrã inteiro ou como painel lateral.
+* **Voz pelo telemóvel**: a Apple TV não dá microfone às apps. A TV mostra um código QR, o telemóvel abre a página da ORYKSA e o que a pessoa diz chega à tua app como texto.
+* **`client.ai`** para as tuas próprias tarefas, por exemplo moderar ou classificar.
+
+```swift
+// Package.swift: .product(name: "OryksaTV", package: "oryksa-swift")
+import OryksaTV
+
+@main
+struct AMinhaAppDeTV: App {
+    // Na Apple TV o cliente manda o platform "tvos" sozinho.
+    @StateObject private var tv = OryksaTv(client: OryksaClient(getToken: { try await MeuServidor.tokenOryksa() }),
+                                           locale: "pt-PT")
+    @State private var mostrarAssistente = false
+
+    var body: some Scene {
+        WindowGroup {
+            OTeuEcra(quandoPedeAjuda: { mostrarAssistente = true })
+                .oryksaTvPresenter(tv) // a foto, o nome e as legendas; o OK e o Voltar calam-na enquanto fala
+                .oryksaTvAssistant(isPresented: $mostrarAssistente, tv: tv)
+                .task { await tv.presenter.say("Bem-vindos! Sou a vossa apresentadora esta noite.") }
+        }
+    }
+}
+
+try await tv.presenter.sayGenerated(instructions: "Anuncia a próxima ronda numa frase curta.", input: "Ronda 2")
+// Só legendas, sem som (cobrada ao preço de texto; uma fala com voz é cobrada ao preço de voz).
+await tv.presenter.say("O tema desta noite: viagens.", voice: false)
+
+// O telemóvel como microfone: mostra o OryksaPairingCard(tv: tv) e lê o que é dito.
+tv.phoneVoice.onText = { texto in quandoOEspectadorDisse(texto) }
+```
+
+* **Sem servidor próprio**: `OryksaTv.publicClient(chatToken:conversationId:)` abre uma sessão pública com o token público do chat do teu negócio, e manda `platform: tvos` e o bundle id da tua app como `app_id`. Quando o teu negócio limita o chat, tem de pôr o teu bundle id na lista de apps permitidas. O `app_id` é um filtro, não é segurança forte (pode ser imitado): a segurança forte é o token vir do teu próprio servidor (`POST /v1/sessions`).
+* **Línguas**: o servidor da ORYKSA escolhe a voz e os textos para o locale. Há vozes nativas para pt-BR, pt-PT, es-ES, es-419, fr-FR, de-DE, en-US e en-GB, e as outras línguas usam a voz de inglês dos EUA.
+* **Interações**: cada fala da apresentadora é cobrada pela tabela de custos de interação da ORYKSA sempre que ela a diz ou a mostra (por cada pedaço de até 600 caracteres), também a fala repetida e a fala só com legendas: a fala com voz ao preço de voz e a fala só com legendas ao preço de texto. O número exato vem no cabeçalho `X-ORYKSA-Interactions-Spent`, e uma fala que o servidor não contou não aparece (o `onError` recebe-a). Cada texto ouvido no telemóvel, cada resposta do chat e cada resposta do `client.ai` também são cobrados.
+* **Comando**: o OK, o Play/Pausa e o Voltar calam a apresentadora enquanto ela fala e não passam para a tua app. No painel de assistente, cima e baixo percorrem as mensagens e os botões, esquerda e direita andam entre os botões, e o Voltar fecha-o.
+* **Microfone da TV**: `OryksaTvMic.isAvailable()` é falso na Apple TV; o SDK nunca pede o microfone lá.
+* **Falas guardadas**: as vozes que ela já disse ficam na pasta Caches da app (o tvOS pode esvaziá-la; aí a voz volta a ser gerada).
+
+Para testes e demonstrações, `OryksaTv(backend: OryksaTvFakeBackend())` corre tudo sem o servidor. É simulado, por isso não prova nada sobre a tua conta ORYKSA. A app de demonstração está em `ExampleTV/` (como a compilar, correr e testar no simulador da Apple TV: `TVOS-SIMULADOR.md`).
 
 ## Como funciona (e porque é que a chave fica segura)
 

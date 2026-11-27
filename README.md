@@ -10,7 +10,7 @@ Official Swift SDK for **ORYKSA AI Employees**. Put an AI employee that already 
 
 * Docs: https://developer.oryksa.com/en/sdks
 * API: `https://api.oryksa.com/v1`
-* iOS 15+, macOS 12+, no dependencies.
+* iOS 15+, macOS 12+, tvOS 15+ (the `OryksaTV` product), no dependencies.
 
 ## Screenshots
 
@@ -20,16 +20,16 @@ Real screens of the example app in this repository, taken by CI on a simulator w
 
 ## Install (Swift Package Manager)
 
-In Xcode: **File > Add Package Dependencies**, paste `https://github.com/oryksa/oryksa-swift` and pick version `1.1.5`. Or in `Package.swift`:
+In Xcode: **File > Add Package Dependencies**, paste `https://github.com/oryksa/oryksa-swift` and pick version `1.2.0`. Or in `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.1.5")
+.package(url: "https://github.com/oryksa/oryksa-swift", from: "1.2.0")
 ```
 
 CocoaPods:
 
 ```ruby
-pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.1.5'
+pod 'Oryksa', :git => 'https://github.com/oryksa/oryksa-swift.git', :tag => '1.2.0'
 ```
 
 ## What it is for
@@ -98,6 +98,53 @@ if r.json?["readable"] as? Bool == true, let size = r.json?["size"] as? String {
 ```
 
 `r.text` has the answer as text, `r.json` the object (with a schema), `r.interactionsSpent` the interactions used. When the plan's interactions are used up the call throws `OryksaError` with status 402.
+
+## Apple TV apps: `OryksaTV` (1.2)
+
+What the AI does for any Apple TV app, driven only by the Siri Remote (arrows, OK, Back), with big letters and a focus you can see from the sofa. Native SwiftUI with the tvOS focus engine, no web view. The texts, voices, rules and buttons come from your ORYKSA account. It is a separate product, so phone apps do not carry it (tvOS 15+).
+
+* **Presenter**: the AI speaks on screen with a native voice in the viewer's language and big subtitles, with her photo and name from your account. Lines she already said play again from the device, with no new voice made, and are charged again each time she says them.
+* **Assistant panel**: a conversation with the AI for the remote, full screen or as a side panel.
+* **Phone voice**: Apple TV gives no microphone to apps. The TV shows a QR code, the phone opens the ORYKSA page, and what the person says arrives in your app as text.
+* **`client.ai`** for your own tasks, for example moderating or classifying.
+
+```swift
+// Package.swift: .product(name: "OryksaTV", package: "oryksa-swift")
+import OryksaTV
+
+@main
+struct MyTVApp: App {
+    // On Apple TV the client sends platform "tvos" by itself.
+    @StateObject private var tv = OryksaTv(client: OryksaClient(getToken: { try await MyBackend.fetchOryksaToken() }),
+                                           locale: "en-US")
+    @State private var showAssistant = false
+
+    var body: some Scene {
+        WindowGroup {
+            YourScreen(onHelp: { showAssistant = true })
+                .oryksaTvPresenter(tv) // her photo, name and subtitles; OK and Back stop her while she speaks
+                .oryksaTvAssistant(isPresented: $showAssistant, tv: tv)
+                .task { await tv.presenter.say("Welcome! I am your host tonight.") }
+        }
+    }
+}
+
+try await tv.presenter.sayGenerated(instructions: "Announce the next round in one short sentence.", input: "Round 2")
+// Subtitles only, no sound (charged at the text price; a spoken line is charged at the voice price).
+await tv.presenter.say("The theme tonight: travel.", voice: false)
+
+// The phone as the microphone: show OryksaPairingCard(tv: tv) and read what is said.
+tv.phoneVoice.onText = { text in onViewerSaid(text) }
+```
+
+* **Without a server of your own**: `OryksaTv.publicClient(chatToken:conversationId:)` opens a public session with your business's public chat token, and sends `platform: tvos` and your bundle id as `app_id`. When your business limits its chat, it must list your bundle id in its allowed apps. `app_id` is a filter, not strong protection (it can be imitated): the strong protection is a token from your own server (`POST /v1/sessions`).
+* **Languages**: the ORYKSA server picks the voice and the texts for the locale. There are native voices for pt-BR, pt-PT, es-ES, es-419, fr-FR, de-DE, en-US and en-GB, and any other language uses the US English voice.
+* **Interactions**: each presenter line is charged by the ORYKSA interaction cost table every time she says it or shows it (per piece of up to 600 characters), a repeated line and a subtitles-only line too: a spoken line at the voice price, a subtitles-only line at the text price. The exact number comes in the `X-ORYKSA-Interactions-Spent` header, and a line the server did not count is not shown (`onError` gets it). Each text heard on the phone, each chat reply and each `client.ai` answer are charged too.
+* **Remote**: OK, Play/Pause and Back stop the presenter while she speaks and are not passed to your app. In the assistant panel, up and down move through the messages and the buttons, left and right between the buttons, and Back closes it.
+* **TV microphone**: `OryksaTvMic.isAvailable()` is false on Apple TV; the SDK never asks for the microphone there.
+* **Kept lines**: the voices she already said live in the app's Caches folder (tvOS may empty it; then the voice is made again).
+
+For tests and demos, `OryksaTv(backend: OryksaTvFakeBackend())` runs everything without the server. It is simulated, so it proves nothing about your ORYKSA account. The demo app is in `ExampleTV/` (how to build, run and test it on the Apple TV Simulator: `TVOS-SIMULADOR.md`, in Portuguese).
 
 ## How it works (and why the key stays safe)
 

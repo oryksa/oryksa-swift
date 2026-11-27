@@ -12,7 +12,7 @@ public enum OryksaVoicePhase: Equatable {
 /// the microphone stays open even while she speaks; only a human voice cuts her off and she stops on
 /// the word (the text stays in the chat); the last second before the cut is kept; 700 ms of silence
 /// closes a sentence, 15 s is the longest; a whisper gets a whispered, shorter answer; her voice is the
-/// ElevenLabs voice chosen in ORYKSA, and if it fails she stays silent and the text is shown.
+/// ORYKSA voice chosen in ORYKSA, and if it fails she stays silent and the text is shown.
 ///
 /// Needs `NSMicrophoneUsageDescription` in the app's Info.plist.
 @MainActor

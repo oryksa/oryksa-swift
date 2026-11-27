@@ -11,3 +11,9 @@ jobs:
         run: swift test
       - name: Build for iOS
         run: xcodebuild -scheme Oryksa -destination 'generic/platform=iOS' build CODE_SIGNING_ALLOWED=NO | tail -20
+      - name: Build OryksaTV for tvOS
+        run: xcodebuild -scheme OryksaTV -destination 'generic/platform=tvOS' build CODE_SIGNING_ALLOWED=NO | tail -20
+      - name: Test on the tvOS Simulator (simulated HTTP only; the live test is skipped)
+        run: |
+          UDID=$(xcrun simctl list devices available -j | python3 -c "import json,sys;d=json.load(sys.stdin)['devices'];print(next(x['udid'] for k,v in d.items() if 'tvOS' in k for x in v))")
+          xcodebuild test -scheme Oryksa-Package -destination "id=$UDID" CODE_SIGNING_ALLOWED=NO | tail -40

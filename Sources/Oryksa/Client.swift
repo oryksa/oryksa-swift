@@ -1,8 +1,8 @@
-// ORYKSA AI Employees SDK for iOS and macOS. License: MIT. Docs: https://developer.oryksa.com
+// ORYKSA AI Employees SDK for iOS, macOS and tvOS. License: MIT. Docs: https://developer.oryksa.com
 import Foundation
 
-/// SDK version sent in the `X-ORYKSA-SDK` header.
-public let oryksaSDKVersion = "1.1.5"
+/// SDK version sent in the `X-ORYKSA-SDK` header. Has to match `s.version` in Oryksa.podspec.
+public let oryksaSDKVersion = "1.2.0"
 
 /// Error returned by the ORYKSA API. `code` is stable, for example
 /// `interaction_limit_reached`, `rate_limited`, `plan_required` or `session_expired`.
@@ -11,6 +11,31 @@ public struct OryksaError: Error, CustomStringConvertible {
     public let code: String
     public let message: String
     public var description: String { "OryksaError(\(status), \(code)): \(message)" }
+
+    public init(status: Int, code: String, message: String) {
+        self.status = status; self.code = code; self.message = message
+    }
+}
+
+/// The answer of `OryksaClient.requestAudio`: the bytes (empty on a 204), the HTTP status and the
+/// headers (names in lower case).
+public struct OryksaAudioResponse {
+    public let status: Int
+    public let data: Data
+    public let headers: [String: String]
+
+    public init(status: Int, data: Data, headers: [String: String]) {
+        self.status = status; self.data = data
+        var h: [String: String] = [:]
+        for (k, v) in headers { h[k.lowercased()] = v }
+        self.headers = h
+    }
+
+    /// The value of the header `name` (any case), or nil.
+    public func header(_ name: String) -> String? {
+        let v = headers[name.lowercased()]?.trimmingCharacters(in: .whitespaces)
+        return (v ?? "").isEmpty ? nil : v
+    }
 }
 
 /// Public look of the AI employee (the same data the ORYKSA website chat shows).
@@ -23,7 +48,7 @@ public struct OryksaAgent: Decodable, Equatable {
     public let suggestions: [String: [String]]
     public let voiceReplies: Bool
     public let conversationId: String?
-    /// ElevenLabs voice chosen for the AI in ORYKSA (the server speaks with it).
+    /// The ORYKSA voice chosen for the AI in ORYKSA (the server speaks with it).
     public let voice: String?
     /// Main language of the AI (`pt`, `en`, `es`...), from ORYKSA.
     public let language: String?
@@ -148,35 +173,117 @@ public struct OryksaAppContext: Equatable {
 /// can ask your server for a new token when the current one expires.
 public final class OryksaClient {
     private var token: String?
+    private let tokenLock = NSLock()
     private let getToken: (() async throws -> String)?
     private let base: URL
     private let session: URLSession
 
+    /// The device sent as `platform` with each request: `ios` by default, `tvos` on Apple TV, or the
+    /// value you pass (for example a TV value of `OryksaTvPlatform` in `OryksaTV`).
+    public let platform: String
+
+    /// Time limit of each request, in seconds.
+    public let timeout: TimeInterval
+
+    /// The `platform` of this device when none is given.
+    public static var defaultPlatform: String {
+        #if os(tvOS)
+        return "tvos"
+        #else
+        return "ios"
+        #endif
+    }
+
     public init(token: String? = nil,
                 getToken: (() async throws -> String)? = nil,
                 baseURL: URL = URL(string: "https://api.oryksa.com/v1")!,
-                session: URLSession = .shared) {
+                session: URLSession = .shared,
+                platform: String? = nil,
+                timeout: TimeInterval = 60) {
         precondition(token != nil || getToken != nil, "OryksaClient needs a token or getToken.")
         precondition(!(token ?? "").hasPrefix("oryk_live_"), "Never use the secret API key in an app. Use a session token (oryk_cs_...).")
         self.token = token
         self.getToken = getToken
         self.base = baseURL
         self.session = session
+        let p = (platform ?? "").trimmingCharacters(in: .whitespaces)
+        self.platform = p.isEmpty ? OryksaClient.defaultPlatform : p
+        self.timeout = timeout
+    }
+
+    /// For apps WITHOUT a server of their own (for example a TV app): the client takes its session token
+    /// from the business's PUBLIC chat token (ORYKSA > Connectors > Website chat, the same token the
+    /// website chat uses). No secret key is involved, and the conversation is kept apart from the ones
+    /// your server creates. Pass a random `conversationId` saved on the device to keep the history.
+    ///
+    /// - platform: sent as `platform` (only when given) and used by the client.
+    /// - appId: your bundle id, sent as `app_id` so the business can allow your app when it limits its
+    ///   chat. A filter only: the strong protection is a token from your own server (`POST /v1/sessions`).
+    public static func `public`(chatToken: String, conversationId: String? = nil, customerName: String? = nil,
+                                baseURL: URL = URL(string: "https://api.oryksa.com/v1")!,
+                                session: URLSession = .shared, timeout: TimeInterval = 60,
+                                platform: String? = nil, appId: String? = nil) -> OryksaClient {
+        let conv = conversationId ?? OryksaClient.randomId()
+        let url = baseURL.appendingPathComponent("public/sessions")
+        let fetch: () async throws -> String = {
+            var req = URLRequest(url: url)
+            req.httpMethod = "POST"
+            req.timeoutInterval = timeout
+            req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            req.setValue("application/json", forHTTPHeaderField: "Accept")
+            req.setValue("ios/\(oryksaSDKVersion)", forHTTPHeaderField: "X-ORYKSA-SDK")
+            var body: [String: Any] = ["widget_token": chatToken, "conversation_id": conv]
+            if let n = customerName, !n.isEmpty { body["customer_name"] = n }
+            if let p = platform, !p.isEmpty { body["platform"] = p }
+            if let a = appId, !a.isEmpty { body["app_id"] = a }
+            req.httpBody = try JSONSerialization.data(withJSONObject: body)
+            let (data, resp) = try await session.data(for: req)
+            let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            let obj = ((try? JSONSerialization.jsonObject(with: data)) as? [String: Any]) ?? [:]
+            guard status == 200 || status == 201, let t = obj["client_token"] as? String, !t.isEmpty else {
+                let e = obj["error"] as? [String: Any]
+                throw OryksaError(status: status, code: (e?["code"] as? String) ?? "public_session_failed",
+                                  message: (e?["message"] as? String) ?? "Could not open the chat.")
+            }
+            return t
+        }
+        return OryksaClient(getToken: fetch, baseURL: baseURL, session: session, platform: platform, timeout: timeout)
+    }
+
+    private static func randomId() -> String {
+        String((0..<24).map { _ in "0123456789abcdef".randomElement()! })
+    }
+
+    /// The token now (several requests may run at once, for example the TV long-poll and the presenter).
+    private func storedToken() -> String? {
+        tokenLock.lock(); defer { tokenLock.unlock() }
+        return token
+    }
+
+    private func store(_ t: String) {
+        tokenLock.lock(); defer { tokenLock.unlock() }
+        token = t
     }
 
     private func currentToken(force: Bool) async throws -> String {
-        if (token == nil || force), let g = getToken { token = try await g() }
-        guard let t = token, !t.isEmpty else { throw OryksaError(status: 401, code: "no_token", message: "No session token.") }
-        return t
+        var t = storedToken()
+        if (t == nil || force), let g = getToken {
+            let fresh = try await g()
+            store(fresh)
+            t = fresh
+        }
+        guard let tok = t, !tok.isEmpty else { throw OryksaError(status: 401, code: "no_token", message: "No session token.") }
+        return tok
     }
 
     private func raw(_ method: String, _ path: String, _ body: [String: Any]?, force: Bool,
-                     upload: (data: Data, filename: String, type: String)? = nil, query: String? = nil) async throws -> Data {
+                     upload: (data: Data, filename: String, type: String)? = nil,
+                     query: String? = nil) async throws -> (Data, HTTPURLResponse?) {
         var url = base.appendingPathComponent(path)
         if let q = query, let withQuery = URL(string: url.absoluteString + "?" + q) { url = withQuery }
         var req = URLRequest(url: url)
         req.httpMethod = method
-        req.timeoutInterval = 60
+        req.timeoutInterval = timeout
         req.setValue("Bearer \(try await currentToken(force: force))", forHTTPHeaderField: "Authorization")
         req.setValue("ios/\(oryksaSDKVersion)", forHTTPHeaderField: "X-ORYKSA-SDK")
         req.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -194,23 +301,53 @@ public final class OryksaClient {
             req.httpBody = b
         }
         let (data, resp) = try await session.data(for: req)
-        let status = (resp as? HTTPURLResponse)?.statusCode ?? 0
+        let http = resp as? HTTPURLResponse
+        let status = http?.statusCode ?? 0
         if status >= 400 {
             let obj = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
             let e = obj?["error"] as? [String: Any]
             throw OryksaError(status: status, code: (e?["code"] as? String) ?? "http_\(status)",
                               message: (e?["message"] as? String) ?? "Request failed with HTTP \(status)")
         }
-        return data
+        return (data, http)
     }
 
-    private func request(_ method: String, _ path: String, _ body: [String: Any]? = nil,
-                         upload: (data: Data, filename: String, type: String)? = nil, query: String? = nil) async throws -> Data {
+    /// One call with the session token, renewed once when it expired.
+    private func exchange(_ method: String, _ path: String, _ body: [String: Any]?,
+                          upload: (data: Data, filename: String, type: String)? = nil,
+                          query: String? = nil) async throws -> (Data, HTTPURLResponse?) {
         do {
             return try await raw(method, path, body, force: false, upload: upload, query: query)
         } catch let e as OryksaError where (e.code == "session_expired" || e.status == 401) && getToken != nil {
             return try await raw(method, path, body, force: true, upload: upload, query: query)
         }
+    }
+
+    private func request(_ method: String, _ path: String, _ body: [String: Any]? = nil,
+                         upload: (data: Data, filename: String, type: String)? = nil, query: String? = nil) async throws -> Data {
+        try await exchange(method, path, body, upload: upload, query: query).0
+    }
+
+    /// Low-level call to an endpoint of the ORYKSA API with this session token (renewed when it
+    /// expires), for endpoints this class does not wrap (`OryksaTV` uses it). `path` has no leading
+    /// slash (`client/agent`); `query` is already encoded (`locale=pt-BR`). Returns the JSON object
+    /// (empty for an empty answer). Throws `OryksaError` on errors.
+    public func requestJSON(_ method: String, _ path: String, body: [String: Any]? = nil,
+                            query: String? = nil) async throws -> [String: Any] {
+        let d = try await request(method, path, body, query: query)
+        if d.isEmpty { return [:] }
+        return ((try? JSONSerialization.jsonObject(with: d)) as? [String: Any]) ?? [:]
+    }
+
+    /// Like `requestJSON` for a POST that answers with audio: the bytes, the status and the headers.
+    /// Throws `OryksaError` on errors (unlike `tts`, which returns nil).
+    public func requestAudio(_ path: String, body: [String: Any]) async throws -> OryksaAudioResponse {
+        let (data, http) = try await exchange("POST", path, body)
+        var headers: [String: String] = [:]
+        for (k, v) in http?.allHeaderFields ?? [:] {
+            if let name = k as? String { headers[name.lowercased()] = "\(v)" }
+        }
+        return OryksaAudioResponse(status: http?.statusCode ?? 0, data: data, headers: headers)
     }
 
     /// Name, photo, greeting and suggestions of the AI employee.
@@ -257,20 +394,21 @@ public final class OryksaClient {
     public func ai(instructions: String? = nil, input: String? = nil, images: [OryksaImage] = [],
                    schema: [String: Any]? = nil, maxTokens: Int? = nil, temperature: Double? = nil) async throws -> OryksaAiResult {
         let body = try OryksaClient.aiBody(instructions: instructions, input: input, images: images, schema: schema,
-                                           maxTokens: maxTokens, temperature: temperature)
+                                           maxTokens: maxTokens, temperature: temperature, platform: platform)
         return try OryksaClient.aiResult(try await request("POST", "client/ai", body))
     }
 
     /// The JSON of `POST /v1/client/ai`.
     static func aiBody(instructions: String? = nil, input: String? = nil, images: [OryksaImage] = [],
-                       schema: [String: Any]? = nil, maxTokens: Int? = nil, temperature: Double? = nil) throws -> [String: Any] {
+                       schema: [String: Any]? = nil, maxTokens: Int? = nil, temperature: Double? = nil,
+                       platform: String = "ios") throws -> [String: Any] {
         if (instructions ?? "").isEmpty && (input ?? "").isEmpty && images.isEmpty {
             throw OryksaError(status: 400, code: "invalid_request", message: "ai() needs instructions, input or an image.")
         }
         if images.count > 4 {
             throw OryksaError(status: 400, code: "invalid_request", message: "ai() takes at most 4 images.")
         }
-        var body: [String: Any] = ["platform": "ios"]
+        var body: [String: Any] = ["platform": platform]
         if let i = instructions, !i.isEmpty { body["instructions"] = i }
         if let t = input, !t.isEmpty { body["input"] = t }
         if !images.isEmpty { body["images"] = images.map { ["base64": $0.data.base64EncodedString(), "mime": $0.mime] } }
@@ -297,22 +435,28 @@ public final class OryksaClient {
     /// - voiceStats: audio numbers of this voice turn (sent by the voice screen).
     /// - image: a photo from the customer, the AI looks at it (up to 2 MB).
     /// - file: a document from the customer (PDF, Word, text, CSV), the AI reads it (up to 8 MB).
+    /// - lang: the language of your app screen (`en`, `pt`, `br`, `es`...). The AI uses it when the
+    ///   message alone does not show the language (for example "ok").
     public func send(_ message: String, appContext: OryksaAppContext? = nil, voice: Bool = false,
                      whisper: Bool = false, voiceStats: [String: Any]? = nil,
-                     image: OryksaImage? = nil, file: OryksaFile? = nil) async throws -> OryksaReply {
+                     image: OryksaImage? = nil, file: OryksaFile? = nil, lang: String? = nil) async throws -> OryksaReply {
         let body = OryksaClient.chatBody(message, appContext: appContext, voice: voice, whisper: whisper,
-                                         voiceStats: voiceStats, image: image, file: file)
+                                         voiceStats: voiceStats, image: image, file: file, platform: platform, lang: lang)
         return try JSONDecoder().decode(OryksaReply.self, from: try await request("POST", "client/chat", body))
     }
 
-    /// The JSON of `POST /v1/client/chat`.
+    /// The JSON of `POST /v1/client/chat`. The client sends its `platform` in every chat request (so
+    /// the owner's lead notice says which app the customer used).
     static func chatBody(_ message: String, appContext: OryksaAppContext? = nil, voice: Bool = false, whisper: Bool = false,
-                         voiceStats: [String: Any]? = nil, image: OryksaImage? = nil, file: OryksaFile? = nil) -> [String: Any] {
+                         voiceStats: [String: Any]? = nil, image: OryksaImage? = nil, file: OryksaFile? = nil,
+                         platform: String? = nil, lang: String? = nil) -> [String: Any] {
         var body: [String: Any] = ["message": message]
+        if let p = platform, !p.isEmpty { body["platform"] = p }
+        if let l = lang, !l.isEmpty { body["lang"] = l }
         if let ctx = appContext { body["app_context"] = ctx.json }
         if voice { body["voice"] = true }
         if whisper { body["whisper"] = true }
-        if let st = voiceStats { body["platform"] = "ios"; body["voice_stats"] = st }
+        if let st = voiceStats { body["platform"] = platform ?? "ios"; body["voice_stats"] = st }
         if let img = image { body["image_base64"] = img.data.base64EncodedString(); body["image_mime"] = img.mime }
         if let f = file { body["file_base64"] = f.data.base64EncodedString(); body["file_name"] = f.name; body["file_mime"] = f.mime }
         return body
@@ -321,9 +465,9 @@ public final class OryksaClient {
     /// Like `sendAndWait`, but returns the whole reply (with `speech` when `voice` is on).
     public func sendAndWaitReply(_ message: String, maxWait: TimeInterval = 40, appContext: OryksaAppContext? = nil,
                                  voice: Bool = false, whisper: Bool = false, voiceStats: [String: Any]? = nil,
-                                 image: OryksaImage? = nil, file: OryksaFile? = nil) async throws -> OryksaReply {
+                                 image: OryksaImage? = nil, file: OryksaFile? = nil, lang: String? = nil) async throws -> OryksaReply {
         let r = try await send(message, appContext: appContext, voice: voice, whisper: whisper, voiceStats: voiceStats,
-                               image: image, file: file)
+                               image: image, file: file, lang: lang)
         if r.status != "pending" { return r }
         let end = Date().addingTimeInterval(maxWait)
         while Date() < end {
@@ -335,7 +479,7 @@ public final class OryksaClient {
         return r
     }
 
-    /// The AI's voice (ElevenLabs, the voice chosen in ORYKSA) for one reply of this conversation, as MP3.
+    /// The AI's voice (the ORYKSA voice chosen in ORYKSA) for one reply of this conversation, as MP3.
     /// Returns nil when the voice is not available: then show the text only (never a robot voice).
     public func tts(_ text: String, whisper: Bool = false) async -> Data? {
         var body: [String: Any] = ["text": text]
@@ -353,7 +497,7 @@ public final class OryksaClient {
 
     /// Reports a voice turn that produced no message (nothing heard, a cut with nothing said).
     public func voiceStats(_ stats: [String: Any]) async {
-        _ = try? await request("POST", "client/voice-stats", ["platform": "ios", "voice_stats": stats])
+        _ = try? await request("POST", "client/voice-stats", ["platform": platform, "voice_stats": stats])
     }
 
     /// Messages of this conversation.
@@ -365,7 +509,7 @@ public final class OryksaClient {
     /// Sends a message and waits for the reply text.
     /// - image / file: a photo or a document from the customer (see `send`).
     public func sendAndWait(_ message: String, maxWait: TimeInterval = 40, appContext: OryksaAppContext? = nil,
-                            image: OryksaImage? = nil, file: OryksaFile? = nil) async throws -> String? {
-        try await sendAndWaitReply(message, maxWait: maxWait, appContext: appContext, image: image, file: file).reply
+                            image: OryksaImage? = nil, file: OryksaFile? = nil, lang: String? = nil) async throws -> String? {
+        try await sendAndWaitReply(message, maxWait: maxWait, appContext: appContext, image: image, file: file, lang: lang).reply
     }
 }

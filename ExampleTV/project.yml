@@ -1,0 +1,52 @@
+# The ORYKSA TV demo for Apple TV (tvOS Simulator). Generate the Xcode project with XcodeGen (the same tool
+# as Example/): `cd ExampleTV && xcodegen`. Steps: TVOS-SIMULADOR.md. No token in this file, ever.
+name: OryksaTVDemo
+options:
+  bundleIdPrefix: com.oryksa
+  deploymentTarget:
+    tvOS: "15.0"
+packages:
+  Oryksa:
+    path: ..
+targets:
+  OryksaTVDemo:
+    type: application
+    platform: tvOS
+    sources: [Sources]
+    dependencies:
+      - package: Oryksa
+        product: OryksaTV
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.oryksa.tvdemo
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: ORYKSA TV Demo
+        MARKETING_VERSION: "1.2.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_VERSION: "5.0"
+        CODE_SIGNING_ALLOWED: NO
+  OryksaTVDemoUITests:
+    type: bundle.ui-testing
+    platform: tvOS
+    sources: [UITests]
+    dependencies:
+      - target: OryksaTVDemo
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.oryksa.tvdemo.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: OryksaTVDemo
+        SWIFT_VERSION: "5.0"
+        CODE_SIGNING_ALLOWED: NO
+schemes:
+  OryksaTVDemo:
+    build:
+      targets:
+        OryksaTVDemo: all
+        OryksaTVDemoUITests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - OryksaTVDemoUITests
