@@ -141,7 +141,9 @@ final class DemoUITests: XCTestCase {
         XCTAssertTrue(proofText(app).hasPrefix("tts#1 "))
         shot("06_before_ok")
         XCUIRemote.shared.press(.select) // OK while she speaks
-        XCTAssertTrue(wait(3) { !subtitle.exists }, "OK stops her")
+        // On failure the message says which: "tts#2" = the button got the OK and started her again;
+        // "tts#1" with the same subtitle = the OK never reached the presenter.
+        XCTAssertTrue(wait(3) { !subtitle.exists }, "OK stops her (proof: \(proofText(app)); subtitle: \(subtitle.exists ? subtitle.label : "-"))")
         RunLoop.current.run(until: Date().addingTimeInterval(2))
         XCTAssertTrue(proofText(app).hasPrefix("tts#1 "), "the OK that stopped her did not press the button again: \(proofText(app))")
         shot("07_after_ok")
@@ -150,7 +152,7 @@ final class DemoUITests: XCTestCase {
         XCTAssertTrue(wait(10) { subtitle.exists && !subtitle.label.isEmpty })
         XCTAssertTrue(proofText(app).hasPrefix("tts#2 "))
         XCUIRemote.shared.press(.menu) // Back while she speaks
-        XCTAssertTrue(wait(3) { !subtitle.exists }, "Back stops her")
+        XCTAssertTrue(wait(3) { !subtitle.exists }, "Back stops her (proof: \(proofText(app)); subtitle: \(subtitle.exists ? subtitle.label : "-"))")
         RunLoop.current.run(until: Date().addingTimeInterval(1))
         XCTAssertEqual(app.state, .runningForeground, "Back did not leave the app")
         XCTAssertTrue(host.exists)

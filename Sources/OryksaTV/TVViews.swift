@@ -278,14 +278,29 @@ struct OryksaRemoteStopper: UIViewRepresentable {
     }
 }
 
-final class OryksaRemoteStopperView: UIView {
+final class OryksaRemoteStopperView: UIView, UIGestureRecognizerDelegate {
     weak var presenter: OryksaPresenter?
     private var recognizers: [UIGestureRecognizer] = []
     private var stopping = false
 
     func setStopping(_ on: Bool) {
         stopping = on
+        if on && recognizers.isEmpty { attach() }
         for r in recognizers { r.isEnabled = on }
+    }
+
+    // `cancelsTouchesInView` only stops the key from reaching the views: another recognizer (the focused
+    // SwiftUI button's) could still recognize the same OK and start her again (Apple TV simulator, Xcode
+    // 27.2: OK did not stop her). While she speaks every other recognizer must wait for ours to fail, and
+    // ours recognizes as soon as the key goes down, so the key is hers alone.
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        stopping && recognizers.contains(gestureRecognizer) && !recognizers.contains(otherGestureRecognizer)
+    }
+
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer,
+                           shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        false
     }
 
     override func willMove(toWindow newWindow: UIWindow?) {
@@ -307,6 +322,7 @@ final class OryksaRemoteStopperView: UIView {
             r.allowedPressTypes = [NSNumber(value: type.rawValue)]
             r.allowedTouchTypes = []
             r.cancelsTouchesInView = true
+            r.delegate = self
             r.isEnabled = stopping
             w.addGestureRecognizer(r)
             recognizers.append(r)
