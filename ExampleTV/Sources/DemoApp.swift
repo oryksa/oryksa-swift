@@ -156,8 +156,9 @@ struct DemoScreen: View {
                         .font(.system(size: 28)).foregroundColor(muted)
                         .accessibilityIdentifier("demo-phone-last")
                 }
-                // One row; the focus moves along it and it scrolls to the focused button.
-                ScrollView(.horizontal, showsIndicators: false) {
+                // Two rows, so every button is on screen at once (in one row the fifth was cut at the right edge at
+                // 1080p, and the pt-BR labels are longer). Each row is a focus section: up and down change rows.
+                VStack(alignment: .leading, spacing: 24) {
                     HStack(spacing: 24) {
                         OryksaTvButton(demo.text("presenter"), systemImage: "person.wave.2", accessibilityID: "demo-presenter") {
                             demo.hear()
@@ -168,6 +169,9 @@ struct DemoScreen: View {
                         OryksaTvButton(demo.phoneLabel, systemImage: "qrcode", accessibilityID: "demo-phone") {
                             demo.showPhone = true
                         }
+                    }
+                    .focusSection()
+                    HStack(spacing: 24) {
                         OryksaTvButton(demo.text("change_language"), systemImage: "globe", accessibilityID: "demo-language") {
                             demo.nextLocale()
                         }
@@ -175,8 +179,9 @@ struct DemoScreen: View {
                             demo.captionsOnly()
                         }
                     }
-                    .padding(24)
+                    .focusSection()
                 }
+                .padding(24)
                 .padding(.top, 20)
                 if demo.proofOverlay {
                     Text(log.last)

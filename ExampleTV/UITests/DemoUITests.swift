@@ -60,15 +60,23 @@ final class DemoUITests: XCTestCase {
     @MainActor
     private func focus(_ app: XCUIApplication, _ id: String, max: Int = 8) -> Bool {
         let b = app.buttons[id]
-        for _ in 0..<max {
-            if b.hasFocus { return true }
-            XCUIRemote.shared.press(.right)
-            RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+        // Along the row (right, then left).
+        func sweep() -> Bool {
+            for direction in [XCUIRemote.Button.right, .left] {
+                for _ in 0..<max {
+                    if b.hasFocus { return true }
+                    XCUIRemote.shared.press(direction)
+                    RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+                }
+            }
+            return b.hasFocus
         }
-        for _ in 0..<max {
-            if b.hasFocus { return true }
-            XCUIRemote.shared.press(.left)
+        if sweep() { return true }
+        // The demo has two rows of buttons: try the other row (down), then back up.
+        for row in [XCUIRemote.Button.down, .up, .up] {
+            XCUIRemote.shared.press(row)
             RunLoop.current.run(until: Date().addingTimeInterval(0.4))
+            if sweep() { return true }
         }
         return b.hasFocus
     }
