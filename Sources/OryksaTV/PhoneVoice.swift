@@ -105,8 +105,11 @@ public final class OryksaPhoneVoice: ObservableObject {
             guard let self = self, my == self.gen, self.state == .waiting else { return }
             self.end(.expired)
         }
+        // A statement body, as in the presenter: the task is Task<Void, Never> without relying on the type of
+        // `poller` to turn `()?` into Void.
         poller = Task { @MainActor [weak self] in
-            await self?.poll(my, p)
+            guard let self = self else { return }
+            await self.poll(my, p)
         }
     }
 
