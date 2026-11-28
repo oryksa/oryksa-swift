@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.0 (Unreleased, TV)
+## 1.2.0
 
 * **ORYKSA for Apple TV apps: the `OryksaTV` product** (tvOS 15 or later), in the same package. Only what the AI
   does for every TV app, driven only by the Siri Remote (arrows, OK, Back), in native SwiftUI with the tvOS focus
@@ -38,7 +38,17 @@
   events, the phone voice). A live test against the real server (`TVLiveTests`) runs only with `ORYKSA_LIVE=1`
   and the token of a test account from the environment (`ORYKSA_TV_TOKEN` or `ORYKSA_TV_TOKEN_FILE`); without it,
   it is skipped and the tests never call the server. How to run everything on the tvOS Simulator:
-  `TVOS-SIMULADOR.md`. Not compiled nor run yet at the time of writing (written on a machine without Xcode).
+  `TVOS-SIMULADOR.md`.
+* **`client.ai` is charged by the ORYKSA interaction cost table**: today 1 per text answer plus 3 for each photo or
+  document read; heavy work adds 1 for every 20 thousand tokens. The exact number comes in `interactionsSpent`.
+  (The docs said 1 per answer.)
+* **Proven** (28/11/2026, Xcode 27.2, Apple TV Simulator tvOS 27.2): `swift test` on macOS and the tests on the
+  tvOS Simulator pass; `Oryksa` builds for iOS and tvOS and `OryksaTV` for tvOS; the demo app builds and runs; UI
+  tests driven by `XCUIRemote`: a new line, the same line again (kept, `cached`) and a subtitles-only line, against
+  the real server on a test account (charged 3, 3 and 1, the cost table of that day), and OK and Back stop her
+  without the key reaching the app (found and fixed on the simulator: the focused button's own recognizer took
+  the same OK). **Not proven**: the sound itself (only the voice bytes arriving), the assistant panel, the system
+  keyboard, the phone QR, changing the language, and a physical Apple TV.
 
 ## 1.1.5
 
@@ -48,7 +58,7 @@
 
 * **The AI doing what you want in your app: `client.ai(...)`.** An AI task of your own feature, from the app, with the
   session token (never the secret key): instructions, text, up to 4 photos and an optional JSON Schema; the answer
-  comes back as text and, with a schema, as an object in `json`. Each answer counts as 1 ORYKSA interaction. It does
+  comes back as text and, with a schema, as an object in `json`. Each answer is charged in ORYKSA interactions (by the cost table since 1.2.0, see there). It does
   not create a conversation in the business's inbox and never acts on the account. Server route: `POST /v1/client/ai`.
 
 ## 1.1.3

@@ -384,7 +384,8 @@ public final class OryksaClient {
         return p
     }
 
-    /// An AI task of your own app, counted as ORYKSA interactions (1 per answer): read a photo,
+    /// An AI task of your own app, charged by the ORYKSA interaction cost table (today 1 per text answer plus 3
+    /// for each photo or document read; heavy work adds 1 for every 20 thousand tokens): read a photo,
     /// extract data, classify, translate, write. It never creates a conversation in the business's
     /// inbox and never acts on the account. Your prompt and your JSON Schema live in your app.
     /// - instructions: what the AI must do.

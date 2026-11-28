@@ -85,7 +85,7 @@ try await client.send("Aqui está o orçamento", file: OryksaFile(data: pdf, nam
 
 ## As tuas funções de IA: `ai` (1.1.4)
 
-Põe a IA a fazer o que a tua app precisa (ler uma foto, extrair dados, classificar, traduzir, escrever) e paga com interações ORYKSA: 1 por resposta. O teu prompt e o teu JSON Schema ficam na tua app; basta o token de sessão (nunca leves a chave secreta). Não cria conversa na tua caixa.
+Põe a IA a fazer o que a tua app precisa (ler uma foto, extrair dados, classificar, traduzir, escrever) e paga com interações ORYKSA, cobradas pela tabela de custos de interação da ORYKSA: hoje 1 por resposta em texto e mais 3 por cada foto ou documento lido; o trabalho pesado soma 1 a cada 20 mil tokens. O teu prompt e o teu JSON Schema ficam na tua app; basta o token de sessão (nunca leves a chave secreta). Não cria conversa na tua caixa.
 
 ```swift
 let r = try await client.ai(
@@ -143,6 +143,9 @@ tv.phoneVoice.onText = { texto in quandoOEspectadorDisse(texto) }
 * **Comando**: o OK, o Play/Pausa e o Voltar calam a apresentadora enquanto ela fala e não passam para a tua app. No painel de assistente, cima e baixo percorrem as mensagens e os botões, esquerda e direita andam entre os botões, e o Voltar fecha-o.
 * **Microfone da TV**: `OryksaTvMic.isAvailable()` é falso na Apple TV; o SDK nunca pede o microfone lá.
 * **Falas guardadas**: as vozes que ela já disse ficam na pasta Caches da app (o tvOS pode esvaziá-la; aí a voz volta a ser gerada).
+
+* **Apps de iPhone e Mac (1.2)**: cada pedido de chat passa a mandar o `platform` (`ios` por omissão), como fazem os SDKs de Flutter e Android, e o `OryksaClient.public(chatToken:..., platform:, appId:)` também abre lá uma sessão pública. Para elas não muda mais nada.
+* **Provado** (28/11/2026, Xcode 27.2, simulador da Apple TV com tvOS 27.2): os testes unitários no macOS e no simulador do tvOS, a app de demonstração e testes de interface com o comando Siri Remote: uma fala nova, a mesma fala outra vez (guardada no aparelho) e uma fala só com legendas, contra o servidor real numa conta de teste (cobradas 3, 3 e 1, a tabela de custos desse dia); o OK e o Voltar calam-na e a tecla não passa para a app. **Não provado**: o som em si (só os bytes da voz a chegar), o painel de assistente, o teclado do sistema, o QR do telemóvel, a mudança de língua e uma Apple TV física.
 
 Para testes e demonstrações, `OryksaTv(backend: OryksaTvFakeBackend())` corre tudo sem o servidor. É simulado, por isso não prova nada sobre a tua conta ORYKSA. A app de demonstração está em `ExampleTV/` (como a compilar, correr e testar no simulador da Apple TV: `TVOS-SIMULADOR.md`).
 

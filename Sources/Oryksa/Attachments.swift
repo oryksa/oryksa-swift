@@ -32,7 +32,7 @@ public struct OryksaAiResult {
     public let text: String
     /// The answer as an object, when you passed a JSON Schema and the answer follows it.
     public let json: [String: Any]?
-    /// ORYKSA interactions this answer used (1 per answer).
+    /// ORYKSA interactions this answer used (by the ORYKSA interaction cost table).
     public let interactionsSpent: Int
     /// ORYKSA interactions left in this period, when known.
     public let interactionsRemaining: Int?
