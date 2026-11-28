@@ -230,8 +230,11 @@ public final class OryksaPresenter: ObservableObject {
         line = ""
         phase = .preparing
         if wasIdle { onStart?() }
-        let task = Task { @MainActor [weak self] in
-            await self?.speakAll(t, whisper: whisper, voice: voice, my: my)
+        // A statement body (not `await self?.speakAll(...)` as the last expression): the task must be
+        // Task<Void, Never>, the type of `current` (Xcode 27.2: "cannot assign Task<()?, Never>").
+        let task: Task<Void, Never> = Task { @MainActor [weak self] in
+            guard let self = self else { return }
+            await self.speakAll(t, whisper: whisper, voice: voice, my: my)
         }
         current = task
         await task.value
